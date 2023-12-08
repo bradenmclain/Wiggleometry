@@ -8,10 +8,10 @@ class Wiggleometer:
         self.start_time = time.time()
 
     def makeBin(self,frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(src=frame, ksize=(5, 5), sigmaX=0.5)
+        gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
         bin_image = np.zeros_like(gray) 
         bin_image[gray > np.min(gray)*1.01] = 255
-        print(bin_image.size)
         return bin_image
     
     def importVideo(self,dest,display=False):
@@ -19,26 +19,45 @@ class Wiggleometer:
         state, frame = cap.read()
         if display:
             while state:
-                bin_image = self.makeBin(frame)
-                # Check if bin_image is not empty before displaying
-                if bin_image.size > 0:
-                    cv2.imshow('frame', bin_image)
-                    print(np.size(bin_image))
-                else:
-                    print("Empty bin_image, skipping display")      
-                              
                 cv2.imshow('frame',bin_image)
                 cv2.imshow('color_frame',frame)
                 cv2.waitKey(1)
                 state, frame = cap.read()
-                print(state)
         return cap
     
+    def display(self,img):
+        if img.size > 0:
+            cv2.imshow('frame',img)
+            cv2.waitKey(5)
 
+    def cannyEdgeDetect(self,img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    
+        h = hsv[:, :, 1]
+      
+        # Apply Gaussian blur to reduce noise and smoothen edges 
+        blurred = cv2.GaussianBlur(src=h, ksize=(5, 5), sigmaX=0.5) 
+        
+        # Perform Canny edge detection 
+        edges = cv2.Canny(blurred, 150, 200) 
+
+        return edges
+        
+    def find_countours(self,img):
+        contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        #cv2.drawContours(img, contours, -1, (0,255,0), 3)
+        return contours
 if __name__ == '__main__':
     wig = Wiggleometer()
-    video = wig.importVideo('Test7.mp4',display=True)
+    video = wig.importVideo('Test7.mp4',display=False)
+
+    state, frame = video.read()
+    while state:
+        bin_image = wig.makeBin(frame)
+        contours = wig.find_countours(bin_image)
+        edge_det = cv2.drawContours(frame, contours, -1, (0,255,0), 3)
+        wig.display(edge_det)
+        state, frame = video.read()
+
 
     
