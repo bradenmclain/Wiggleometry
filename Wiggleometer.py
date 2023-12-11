@@ -14,12 +14,18 @@ class Wiggleometer:
         bin_image[gray > np.min(gray)*1.01] = 255
         return bin_image
     
+    def threshold(self,image):
+        red = image[:, :, 2]
+        empty = np.zeros_like(red)
+        empty[np.where(red>150)] = 255
+        return empty        
+
+
     def importVideo(self,dest,display=False):
         cap = cv2.VideoCapture(dest)
         state, frame = cap.read()
         if display:
             while state:
-                cv2.imshow('frame',bin_image)
                 cv2.imshow('color_frame',frame)
                 cv2.waitKey(1)
                 state, frame = cap.read()
@@ -45,19 +51,29 @@ class Wiggleometer:
         
     def find_countours(self,img):
         contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        #cv2.drawContours(img, contours, -1, (0,255,0), 3)
-        return contours
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        img = cv2.drawContours(img, contours, -1, (0,255,0), 3)
+        return img
+    
+    def find_ROI(thresh_image):
+        pass
+
+    
 if __name__ == '__main__':
     wig = Wiggleometer()
-    video = wig.importVideo('Test7.mp4',display=False)
+    video = wig.importVideo('stubbing.mp4',display=False)
 
     state, frame = video.read()
+    thresh_prev = wig.threshold(frame)
+    i = 0
     while state:
-        bin_image = wig.makeBin(frame)
-        contours = wig.find_countours(bin_image)
-        edge_det = cv2.drawContours(frame, contours, -1, (0,255,0), 3)
-        wig.display(edge_det)
         state, frame = video.read()
+        thresh = wig.threshold(frame)
+        dif = thresh - thresh_prev
+        countoured = wig.find_countours(dif)
+        wig.display(dif)
+        thresh_prev = thresh
+        
 
 
     
