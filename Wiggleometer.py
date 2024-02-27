@@ -1,6 +1,7 @@
 import cv2
 import time
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Wiggleometer: 
 
@@ -57,23 +58,93 @@ class Wiggleometer:
     
     def find_ROI(thresh_image):
         pass
+    
 
     
 if __name__ == '__main__':
     wig = Wiggleometer()
-    video = wig.importVideo('stubbing.mp4',display=False)
+    video = wig.importVideo('stable_trim.mp4',display=False)
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
     state, frame = video.read()
     thresh_prev = wig.threshold(frame)
+    stability_values = []
     i = 0
     while state:
-        state, frame = video.read()
         thresh = wig.threshold(frame)
         dif = thresh - thresh_prev
         countoured = wig.find_countours(dif)
-        wig.display(dif)
+        dif_number = np.sum(dif)
+        display_img = cv2.putText(frame,f'Stability: {dif_number}',(10,70), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
+        if dif_number > 1000000:
+            quality = 'Unstable'
+            color = (0, 0, 255)
+        else:
+            quality = 'stable'
+            color = (0, 255, 0)
+        display_img = cv2.putText(frame,quality,(10,140), font, 2, color, 2, cv2.LINE_AA)
+        stability_values.append(dif_number)
+        wig.display(frame)
         thresh_prev = thresh
-        
+        state, frame = video.read()
 
+    #plt.plot(stability_values)
+    #plt.show()
+
+    video = wig.importVideo('stubbing_trim.mp4',display=False)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    state, frame = video.read()
+    thresh_prev = wig.threshold(frame)
+    stability_values2 = []
+    i = 0
+    while state:
+        thresh = wig.threshold(frame)
+        dif = thresh - thresh_prev
+        countoured = wig.find_countours(dif)
+        dif_number = np.sum(dif)
+        display_img = cv2.putText(frame,f'Stability: {dif_number}',(10,70), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
+        if dif_number > 1000000:
+            quality = 'Unstable'
+            color = (0, 0, 255)
+        else:
+            quality = 'stable'
+            color = (0, 255, 0)
+        display_img = cv2.putText(frame,quality,(10,140), font, 2, color, 2, cv2.LINE_AA)
+        stability_values2.append(dif_number)
+        wig.display(frame)
+        thresh_prev = thresh
+        state, frame = video.read()
+
+
+    video = wig.importVideo('balling_trim.mp4',display=False)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    state, frame = video.read()
+    thresh_prev = wig.threshold(frame)
+    stability_values3 = []
+    i = 0
+    while state:
+        thresh = wig.threshold(frame)
+        dif = thresh - thresh_prev
+        countoured = wig.find_countours(dif)
+        dif_number = np.sum(dif)
+        display_img = cv2.putText(frame,f'Stability: {dif_number}',(10,70), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
+        if dif_number > 1000000:
+            quality = 'Unstable'
+            color = (0, 0, 255)
+        else:
+            quality = 'stable'
+            color = (0, 255, 0)
+        display_img = cv2.putText(frame,quality,(10,140), font, 2, color, 2, cv2.LINE_AA)
+        stability_values3.append(dif_number)
+        wig.display(frame)
+        thresh_prev = thresh
+        state, frame = video.read()
+        
+    plt.plot(stability_values)
+    plt.plot(stability_values2)
+    plt.plot(stability_values3)
+    plt.show()
 
     
