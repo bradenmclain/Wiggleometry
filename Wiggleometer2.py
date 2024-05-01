@@ -50,11 +50,13 @@ class Wiggleometer:
 
         return edges
         
-    def find_countours(self,img):
+    def find_countours(self,img,og_frame):
         contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-        img = cv2.drawContours(img, contours, -1, (0,255,0), 3)
-        return img
+        #img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        marked_frame = cv2.drawContours(og_frame, contours, -1, (0,255,0), 3)
+        print('finding contours')
+
+        return marked_frame
     
     def find_ROI(thresh_image):
         pass
@@ -70,11 +72,37 @@ if __name__ == '__main__':
     thresh_prev = wig.threshold(frame)
     stability_values = []
     i = 0
+
+    while state:
+        thresh = wig.threshold(frame)
+        dif = thresh - thresh_prev
+        dif_number = np.sum(dif)
+        display_img = wig.find_countours(thresh, frame)
+        display_img = cv2.putText(display_img,f'Stability: {dif_number}',(10,70), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
+        if dif_number > 1000000:
+            quality = 'Unstable'
+            color = (0, 0, 255)
+        else:
+            quality = 'stable'
+            color = (0, 255, 0)
+
+        display_img = cv2.putText(display_img,quality,(10,140), font, 2, color, 2, cv2.LINE_AA)
+        thresh_prev = thresh
+        wig.display(display_img)
+        state, frame = video.read()
+
+
+
+
+
+
+
     while state:
         thresh = wig.threshold(frame)
         dif = thresh - thresh_prev
         countoured = wig.find_countours(dif)
         dif_number = np.sum(dif)
+        frame = wig.find_countours(thresh, frame)
         display_img = cv2.putText(frame,f'Stability: {dif_number}',(10,70), font, 2, (255, 255, 255), 2, cv2.LINE_AA)
         if dif_number > 1000000:
             quality = 'Unstable'
@@ -85,7 +113,7 @@ if __name__ == '__main__':
         display_img = cv2.putText(frame,quality,(10,140), font, 2, color, 2, cv2.LINE_AA)
         output.write(display_img)
         stability_values.append(dif_number)
-        wig.display(frame)
+        wig.display(display_img)
         thresh_prev = thresh
         state, frame = video.read()
 
