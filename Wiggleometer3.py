@@ -156,8 +156,14 @@ if __name__ == '__main__':
     plt.xlabel("Frame")
     plt.ylabel("Difference between Current and Previous Frame")
     plt.legend(loc='best')
-
     plt.show()
+    plt.clf()
+
+    plt.plot(np.diff(stable_change),'g',label = 'Stable Difference')
+    plt.plot(np.diff(stubby_change),'b',label = 'Stubby Difference')
+    plt.legend(loc='best')
+    plt.show()
+    plt.clf()
 
     plt.plot(stable_pix_lookback,'g', label = 'Stable')
     plt.plot(stubby_pix_lookback,'b',label = 'Stubby')
