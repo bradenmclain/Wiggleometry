@@ -89,8 +89,13 @@ class Wiggleometer:
 
         return gray
     
-    
+
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), 'valid') / w
+
 if __name__ == '__main__':
+
+
     stable = Wiggleometer("stable_trim.mp4")
     stubby = Wiggleometer("stubbing_trim.mp4")
     balling = Wiggleometer("balling_trim.mp4")
@@ -149,6 +154,10 @@ if __name__ == '__main__':
         # cv2.imshow('frame',stable.frame)
         # cv2.waitKey(5)
         
+    stable_change = np.array(stable_change,dtype= np.float64)
+    stubby_change = np.array(stubby_change,dtype= np.float64)
+    print(stable_change[450:500])
+    print(np.diff(stable_change[450:500]))
 
     plt.plot(stable_change,'g', label = 'Stable')
     plt.plot(stubby_change,'b',label = 'Stubby')
@@ -159,9 +168,14 @@ if __name__ == '__main__':
     plt.show()
     plt.clf()
 
-    plt.plot(np.diff(stable_change),'g',label = 'Stable Difference')
-    plt.plot(np.diff(stubby_change),'b',label = 'Stubby Difference')
+
+    # plt.plot(np.abs(np.diff(np.array(stable_change))),'g',label = 'Stable Difference')
+    # plt.plot(np.abs(np.diff(np.array(stubby_change))),'b',label = 'Stubby Difference')
+    plt.plot(moving_average(np.abs(np.diff(np.array(stable_change))),10),'g',label = 'Stable')
+    plt.plot(moving_average(np.abs(np.diff(np.array(stubby_change))),10),'b',label = 'Stubby')
     plt.legend(loc='best')
+    plt.xlabel("Frame")
+    plt.ylabel("Rate of Change of Current Frame - Previous Frame")
     plt.show()
     plt.clf()
 
