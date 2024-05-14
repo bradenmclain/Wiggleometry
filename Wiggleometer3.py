@@ -14,7 +14,7 @@ class Wiggleometer:
         self.binary_image_ring_buffer = collections.deque(maxlen = 2)
         self.frame_change_buffer = collections.deque(maxlen = 15)
         self.frame_change_buffer.append(1)
-        self.state = "Empty"
+        self.deposit_state = "Empty"
         
 
         self.pixel_count = 0
@@ -99,13 +99,13 @@ class Wiggleometer:
         self.frame_change_buffer.append(np.sum(self.binary_image - self.binary_image_ring_buffer[0],dtype=np.float64))
         self.frame_change_difference = np.abs(np.diff(np.asarray(self.frame_change_buffer,dtype=np.float64)))
         if np.mean(self.pixel_count_buffer) > 3000000:
-            self.state = 'Balling'
+            self.deposit_state = 'Balling'
         elif np.mean(self.pixel_count_buffer) < 1000:
-            self.state = 'Empty'
+            self.deposit_state = 'Empty'
         elif np.mean(self.frame_change_difference) < 250000:
-            self.state = 'Stable'
+            self.deposit_state = 'Stable'
         else:
-            self.state = 'Stubbing'
+            self.deposit_state = 'Stubbing'
 
         
    
@@ -118,52 +118,65 @@ def moving_average(x, w):
 
 if __name__ == '__main__':
 
+    test = Wiggleometer("combined.mp4")
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
-    stable = Wiggleometer("stable_trim.mp4")
-    stubby = Wiggleometer("stubbing_trim.mp4")
-    balling = Wiggleometer("balling_trim.mp4")
-    stable.get_frame()
-    stubby.get_frame()
-    balling.get_frame()
-    stable_pix = []
-    stable_pix_lookback = []
-    stubby_pix = []
-    stubby_pix_lookback = []
-    balling_pix = []
-    balling_pix_lookback = []
-    stable_change = []
-    stubby_change = []
-    balling_change = []
+
+    # stable = Wiggleometer("stable_trim.mp4")
+    # stubby = Wiggleometer("stubbing_trim.mp4")
+    # balling = Wiggleometer("balling_trim.mp4")
+    # stable.get_frame()
+    # stubby.get_frame()
+    # balling.get_frame()
+    # stable_pix = []
+    # stable_pix_lookback = []
+    # stubby_pix = []
+    # stubby_pix_lookback = []
+    # balling_pix = []
+    # balling_pix_lookback = []
+    # stable_change = []
+    # stubby_change = []
+    # balling_change = []
+    test.get_frame()
     i = 0
+
+    while test.state:
+        test.get_state()
+        deposit_state = test.deposit_state
+        print(deposit_state)
+        display_img = cv2.putText(test.frame,deposit_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
+        cv2.imshow('frame',display_img)
+        cv2.waitKey(5)
+        test.get_frame()
 
 
     big = True
-    while balling.state or stubby.state or stable.state:
-        i+=1
+    # while balling.state or stubby.state or stable.state:
+    #     i+=1
 
-        if stable.state:
-            stable.get_state()
-            deposit_state = stable.state
-            stable_pix.append(stable.pixel_count)
-            stable_change.append(np.mean(stable.frame_change_difference))
-            print(deposit_state)
-            stable.get_frame()
+    #     if stable.state:
+    #         stable.get_state()
+    #         deposit_state = stable.state
+    #         stable_pix.append(stable.pixel_count)
+    #         stable_change.append(np.mean(stable.frame_change_difference))
+    #         print(deposit_state)
+    #         stable.get_frame()
 
-        if stubby.state:
-            stubby.get_state()
-            deposit_state = stubby.state
-            stubby_pix.append(stubby.pixel_count)
-            stubby_change.append(np.mean(stubby.frame_change_difference))
-            stubby.get_frame()
+    #     if stubby.state:
+    #         stubby.get_state()
+    #         deposit_state = stubby.state
+    #         stubby_pix.append(stubby.pixel_count)
+    #         stubby_change.append(np.mean(stubby.frame_change_difference))
+    #         stubby.get_frame()
 
-        if balling.state:
-            balling.get_state()
-            deposit_state = balling.state
-            balling_pix.append(balling.pixel_count)
-            balling_change.append(np.mean(balling.frame_change_difference))
-            balling.get_frame()
-            cv2.imshow('frame',balling.binary_image)
-            cv2.waitKey(5)
+    #     if balling.state:
+    #         balling.get_state()
+    #         deposit_state = balling.state
+    #         balling_pix.append(balling.pixel_count)
+    #         balling_change.append(np.mean(balling.frame_change_difference))
+    #         balling.get_frame()
+    #         cv2.imshow('frame',balling.binary_image)
+    #         cv2.waitKey(5)
       
         #start = time.time()
         
@@ -172,27 +185,27 @@ if __name__ == '__main__':
         # cv2.imshow('frame',stable.frame)
         # cv2.waitKey(5)
     
-    plt.plot(stable_pix,'g', label = 'Stable')
-    plt.plot(stubby_pix,'b',label = 'Stubby')
-    plt.plot(balling_pix,'orange', label = 'Balling')
-    plt.xlabel("Frame")
-    plt.ylabel("Total Thresholded Pixel Count")
-    plt.legend(loc='best')
+    # plt.plot(stable_pix,'g', label = 'Stable')
+    # plt.plot(stubby_pix,'b',label = 'Stubby')
+    # plt.plot(balling_pix,'orange', label = 'Balling')
+    # plt.xlabel("Frame")
+    # plt.ylabel("Total Thresholded Pixel Count")
+    # plt.legend(loc='best')
 
-    plt.show()
+    # plt.show()
         
-    # stable_change = np.array(stable_change,dtype= np.float64)
-    # stubby_change = np.array(stubby_change,dtype= np.float64)
+    # # stable_change = np.array(stable_change,dtype= np.float64)
+    # # stubby_change = np.array(stubby_change,dtype= np.float64)
 
 
-    plt.plot(stable_change,'g', label = 'Stable')
-    plt.plot(stubby_change,'b',label = 'Stubby')
-    #plt.plot(balling_change,'orange', label = 'Balling')
-    plt.xlabel("Frame")
-    plt.ylabel("Difference between Current and Previous Frame")
-    plt.legend(loc='best')
-    plt.show()
-    plt.clf()
+    # plt.plot(stable_change,'g', label = 'Stable')
+    # plt.plot(stubby_change,'b',label = 'Stubby')
+    # #plt.plot(balling_change,'orange', label = 'Balling')
+    # plt.xlabel("Frame")
+    # plt.ylabel("Difference between Current and Previous Frame")
+    # plt.legend(loc='best')
+    # plt.show()
+    # plt.clf()
 
 
     # plt.plot(np.abs(np.diff(np.array(stable_change))),'g',label = 'Stable Difference')
