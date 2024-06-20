@@ -159,8 +159,8 @@ if __name__ == '__main__':
         print(deposit_state)
         display_img = cv2.putText(test.frame,deposit_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
         out.write(display_img)
-        # cv2.imshow('frame',display_img)
-        # cv2.waitKey(5)
+        cv2.imshow('frame',display_img)
+        cv2.waitKey(5)
         test.get_frame()
 
 

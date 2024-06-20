@@ -11,7 +11,7 @@ def is_fourcc_available(codec):
 
 def enumerate_fourcc_codecs():
     codecs_to_test = ["DIVX", "XVID", "MJPG", "X264", "WMV1", "WMV2", "FMP4",
-                      "mp4v", "avc1", "I420", "IYUV", "mpg1", "H264"]
+                      "mp4v", "acap1", "I420", "IYUV", "mpg1", "H264"]
     available_codecs = []
     for codec in codecs_to_test:
         available_codecs.append((codec, is_fourcc_available(codec)))
