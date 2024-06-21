@@ -1,12 +1,10 @@
 import cv2
 import time
-import icecream as ic
-from multiprocessing import Process
+from icecream import ic
+from multiprocessing import Process, Queue
+import schedule
 import os
 
-
-def threaded_print(thing):
-    print(thing)
 
 class VideoWidget(): 
 
@@ -23,15 +21,15 @@ class VideoWidget():
 
         self.i = 0
 
-        self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        self.out = cv2.VideoWriter(f'output{self.i}.avi', self.fourcc, 30.0, (1920, 1080))
+
+        self.queue = Queue()
 
 
     def get_frame(self):
         self.state, self.frame = self.cap.read()  
 
-    def record_video(self):
-        self.out.write(self.frame)
+    def fill_video_queue(self):
+        self.queue.put(self.frame)
 
     def stop_recording(self):
         self.i +=1
@@ -43,14 +41,28 @@ class VideoWidget():
         self.cap.release()
 
 
+def save_video_queue(out,queue):
+    
+    self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    self.out = cv2.VideoWriter(f'output{self.i}.avi', self.fourcc, 30.0, (1920, 1080))
+    
+    while queue.empty() == False:
+        frame = queue.get()
+        if frame is not None: 
+            out.write(frame)
+        else:
+            ic('empty frame recieved')
+
 if __name__ == '__main__':
     cv2.namedWindow("preview",cv2.WINDOW_NORMAL)
     cv2.resizeWindow("preview", 960, 540) 
     font = cv2.FONT_HERSHEY_SIMPLEX
     record = False
-    #proc = Process(target=threaded_print)  # instantiating without any argument
+    
 
     stream = VideoWidget()
+    #schedule.every(1).seconds.do(stream.save_video_queue)
+    
     
     if stream.cap.isOpened(): # try to get the first frame
         stream.get_frame()
@@ -61,6 +73,8 @@ if __name__ == '__main__':
 
     while stream.state:
         start0 = time.time()
+        schedule.run_pending()
+        
         key = cv2.waitKey(1)
         start2 = time.time()
         
@@ -72,7 +86,7 @@ if __name__ == '__main__':
             record = True
             recording_flag = "PRESS S TO STOP RECORDING"
             start = time.time()
-            stream.record_video()
+            stream.fill_video_queue()
             print(f'recording took {time.time()-start} seconds')
             
         if key == ord('s'):
@@ -81,6 +95,10 @@ if __name__ == '__main__':
             stream.stop_recording()
             print('hitting')
 
+        if not stream.queue.empty():
+            process = Process(target=save_video_queue, args=(stream.out, stream.queue))
+            process.start()
+            process.join()  # Ensure the process completes before proceeding
 
         display_frame = cv2.putText(stream.frame,recording_flag,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
         cv2.imshow("preview", display_frame)
