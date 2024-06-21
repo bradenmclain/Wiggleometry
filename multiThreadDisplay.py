@@ -45,6 +45,18 @@ def save_video_queue(out,queue):
     
     self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
     self.out = cv2.VideoWriter(f'output{self.i}.avi', self.fourcc, 30.0, (1920, 1080))
+
+
+
+    if flag == 'create_new_video':
+        self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        self.out = cv2.VideoWriter(f'output{self.i}.avi', self.fourcc, 30.0, (1920, 1080))
+
+
+    if flag == 'recording'
+        pass
+
+    if
     
     while queue.empty() == False:
         frame = queue.get()
@@ -66,7 +78,7 @@ if __name__ == '__main__':
     
     if stream.cap.isOpened(): # try to get the first frame
         stream.get_frame()
-        recording_flag = "PRESS R TO START RECORDING"
+        recording_flag = "create_new_video"
         
     else:
         stream.state = False
@@ -84,14 +96,14 @@ if __name__ == '__main__':
 
         if key == ord('r') or record:
             record = True
-            recording_flag = "PRESS S TO STOP RECORDING"
+            recording_flag = "recording"
             start = time.time()
             stream.fill_video_queue()
             print(f'recording took {time.time()-start} seconds')
             
         if key == ord('s'):
             record = False
-            recording_flag = "PRESS R TO START RECORDING"
+            recording_flag = "stop"
             stream.stop_recording()
             print('hitting')
 
