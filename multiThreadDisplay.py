@@ -17,7 +17,12 @@ class VideoWidget():
         self.cap.set(cv2.CAP_PROP_FPS, 30)  
 
         self.state, self.frame = self.cap.read()
+        self.width, self.height, rgb= self.frame.shape
+        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
+
         self.queue = queue
+
+        print(self.height,self.width,self.fps)
 
 
     def get_frame(self):
@@ -29,9 +34,9 @@ class VideoWidget():
         print('frame def put into queue')
 
 
-def save_video_queue(image_queue,flag_queue):
+def save_video_queue(image_queue,flag_queue,height,width,fps):
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter(f'output{time.time()}.avi', fourcc, 30.0, (1920, 1080))
+    out = cv2.VideoWriter(f'output{time.time()}.avi', fourcc, fps, (width, height))
     flag = 'idle'
     
     while flag != 'close':
@@ -44,6 +49,7 @@ def save_video_queue(image_queue,flag_queue):
             while image_queue.empty() == False:
                 frame = image_queue.get()
                 if frame is not None: 
+                    ic(frame)
                     out.write(frame)
                 else:
                     ic('empty frame recieved while recording')
@@ -52,13 +58,15 @@ def save_video_queue(image_queue,flag_queue):
             ic('im stopping')
             while image_queue.empty() == False:
                 frame = image_queue.get()
+
                 if frame is not None: 
+                    
                     out.write(frame)
                 else:
                     ic('empty frame recieved while finalizing recording')
             out.release()
             name = time.time()
-            out = cv2.VideoWriter(f'output{name}.avi', fourcc, 30.0, (1920, 1080))
+            out = cv2.VideoWriter(f'output{name}.avi', fourcc, fps, (width, height))
 
         time.sleep(.1)
 
@@ -86,7 +94,7 @@ if __name__ == '__main__':
     
     if stream.cap.isOpened(): # try to get the first frame
         stream.get_frame()
-        process = Process(target=save_video_queue, args=(image_queue, flag_queue))
+        process = Process(target=save_video_queue, args=(image_queue, flag_queue,stream.width,stream.height,stream.fps))
         process.start()
 
     else:
