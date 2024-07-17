@@ -18,11 +18,16 @@ class Wiggleometer:
         self.gray_image_ring_buffer = collections.deque(maxlen = 2)
         self.frame_change_buffer = collections.deque(maxlen = 3)
         self.white_pixel_buffer = collections.deque(maxlen = 3)
+        self.red_buffer = collections.deque(maxlen = 3)
         self.frame_change_buffer.append(1)
-        self.deposit_state = "Empty"
+        self.stability_state = "Not Depositing"
         self.height,self.width,val = self.frame.shape
         self.total_pix = self.height*self.width
         self.rgb_pix = []
+        self.deposit_state = 'Initalize'
+
+        #thresholding parameters
+        self.deposit_state_threshold = 3687626
 
         
 
@@ -60,6 +65,7 @@ class Wiggleometer:
         self.red = self.frame[:, :, 2]
         self.green = self.frame[:,:,1]
         self.blue = self.frame[:,:,0]
+        self.red_buffer.append(np.sum(self.red))
         self.gray_image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY) 
         self.gray = cv2.GaussianBlur(src=self.gray_image, ksize=(5, 5), sigmaX=0.5)
         #test.frame = gray_image
@@ -114,17 +120,59 @@ class Wiggleometer:
         self.pixel_count_buffer.append(self.pixel_count)
         self.binary_image_ring_buffer.append(self.binary_image)
         self.gray_image_ring_buffer.append(self.gray_image)
-        self.frame_change_buffer.append(np.sum(self.binary_image - self.binary_image_ring_buffer[0],dtype=np.float64))
+        self.frame_change = np.sum(self.binary_image - self.binary_image_ring_buffer[0],dtype=np.float64)
+        self.frame_change_buffer.append(self.frame_change)
         #self.frame_change_difference = np.abs(np.diff(np.asarray(self.frame_change_buffer,dtype=np.float64)))
         self.frame_change_difference = np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64))
-        if np.mean(self.pixel_count_buffer) > .0085*self.total_pix:
-            self.deposit_state = 'Balling'
-        elif np.mean(self.pixel_count_buffer) < .0005*self.total_pix:
-            self.deposit_state = 'Empty'
-        elif np.mean(self.frame_change_difference) < 250000:
-            self.deposit_state = 'Stable'
+        # if np.mean(self.pixel_count_buffer) > .0085*self.total_pix:
+        #     self.stability_state = 'Balling'
+        # elif np.mean(self.pixel_count_buffer) < .0005*self.total_pix:
+        #     self.stability_state = 'Empty'
+        # elif np.mean(self.frame_change_difference) < 250000:
+        #     self.stability_state = 'Stable'
+        # else:
+        #     self.stability_state = 'Stubbing'
+
+    def get_stability_state(self):
+        if self.deposit_state != 'Depositing':
+            self.stability_state = 'Not Depositing'
+
+        elif np.mean(test.red_buffer) > 25078982:
+            self.stability_state = 'Balling'
+
         else:
-            self.deposit_state = 'Stubbing'
+            self.stability_state = 'Stable or Stubbing'
+
+    
+    def get_deposit_state(self):
+        #find trim state
+
+        if self.deposit_state == 'Initalize' and self.frame_change_difference > self.deposit_state_threshold:
+            self.deposit_state = 'Trim'
+        
+        if self.deposit_state == 'Trim' and self.frame_change < 1000:
+            self.deposit_state = 'Awaiting Deposition'
+
+        if self.deposit_state == 'Awaiting Deposition' and self.frame_change_difference > self.deposit_state_threshold:
+            self.deposit_state = 'Engage'
+
+        if self.deposit_state == 'Engage' and self.frame_change_difference < self.deposit_state_threshold:
+            self.deposit_state = 'Depositing'
+
+        if self.deposit_state == 'Depositing' and self.frame_change_difference > self.deposit_state_threshold and self.stability_state != 'Balling':
+            self.deposit_state = 'Retract'
+
+        if self.deposit_state == 'Retract' and self.frame_change_difference < 1000:
+            self.deposit_state = 'Deposition Complete'
+        
+
+        # #find empty state
+        # if self.frame_change < 1000:
+        #     self.deposit_state = 'Empty'
+
+
+        
+        pass
 
         
    
@@ -149,7 +197,8 @@ if __name__ == '__main__':
     global_total_red_pix = []
     global_white_count = []
     global_white_count_buffer = []
-    for vid,i  in enumerate([2,3,5]):
+    videos = [1,3,4,5,6,7]
+    for vid,i  in enumerate(videos):
         file = f"./data/Second/wiggleometer_deposit_{i}.mp4"
         #file = ['stubbing_trim.mp4','stable_trim.mp4']
         print(f'the file is {file}')
@@ -163,14 +212,19 @@ if __name__ == '__main__':
 
         while test.state:
             test.get_state()
-            deposit_state = test.deposit_state
-            display_img = cv2.putText(test.frame,deposit_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
+            test.get_deposit_state()
+            test.get_stability_state()
+            #print(test.deposit_state)
+            display_img = cv2.putText(test.frame,test.stability_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
+            display_img = cv2.putText(display_img,test.deposit_state,(10,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
             #out.write(display_img)
             # cv2.imshow('frame',test.frame)
-            # cv2.waitKey(1)
+            # cv2.waitKey(20)
             test.get_frame()
-            total_red_pix.append(np.sum(test.red))
-            frame_change.append(np.average(test.frame_change_difference))
+            #total_red_pix.append(np.sum(test.red))
+            total_red_pix.append(np.mean(test.red_buffer))
+            #frame_change.append(np.average(test.frame_change_difference))
+            frame_change.append(test.frame_change_difference)
             white_count_buffer.append(np.average(test.white_pixel_buffer))
             white_count.append(np.sum(test.white))
             # plt.plot(frame_change)
@@ -198,10 +252,11 @@ if __name__ == '__main__':
         # plt.show()
         # plt.clf()
     titles = ['Dripping Deposition','Stable Deposition','Oscillating Deposition']
+    titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition', 'Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
 
     for idx,vid in enumerate(global_total_red_pix):
     #     #plt.plot(vid)
-        plt.plot(global_white_count[idx],label = titles[idx])
+        plt.plot(global_total_red_pix[idx],label = f'Deposit {idx}')
         #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
     plt.legend(loc="upper left")
     plt.show()
@@ -214,13 +269,13 @@ if __name__ == '__main__':
 
     for idx,vid in enumerate(global_total_red_pix):
     #     #plt.plot(vid)
-        plt.plot(global_total_red_pix[idx],label = titles[idx])
+        plt.plot(global_total_red_pix[idx],label = f'{titles[videos[idx-1]]}')
         #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
     plt.legend(loc="upper left")
 
     plt.xlabel('Frame')
-    plt.ylabel('Total Pixel Intensity')
-    plt.title('Total Pixel Intensity for Various Deposition States')
+    plt.ylabel('Frame to Frame Pixel Change')
+    plt.title('Frame to Frame Pixel Change for Stable and Oscillating Deposition')
 
     Vline = draggable_lines(ax, "h", 10000,len(max(global_total_red_pix, key=len)))
     # Update the legend after adding the draggable line
