@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import collections
 from scipy.stats import gmean
+from draggable_lines import draggable_lines
 
 class Wiggleometer: 
 
@@ -196,7 +197,7 @@ if __name__ == '__main__':
 
         # plt.show()
         # plt.clf()
-    titles = ['Dripping','Stable','Oscillating']
+    titles = ['Dripping Deposition','Stable Deposition','Oscillating Deposition']
 
     for idx,vid in enumerate(global_total_red_pix):
     #     #plt.plot(vid)
@@ -205,13 +206,34 @@ if __name__ == '__main__':
     plt.legend(loc="upper left")
     plt.show()
 
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.subplot(111)
+    plt.legend(loc='upper right')
+
     for idx,vid in enumerate(global_total_red_pix):
     #     #plt.plot(vid)
         plt.plot(global_total_red_pix[idx],label = titles[idx])
         #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
     plt.legend(loc="upper left")
-    plt.show()
+
+    plt.xlabel('Frame')
+    plt.ylabel('Total Pixel Intensity')
+    plt.title('Total Pixel Intensity for Various Deposition States')
+
+    Vline = draggable_lines(ax, "h", 10000,len(max(global_total_red_pix, key=len)))
+    # Update the legend after adding the draggable line
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, loc='upper right')
         
         # plt.plot(pixel_count_array)
         # plt.show()
+    while Vline.XorY > 0:
+        handles, labels = ax.get_legend_handles_labels()
+        print(f'the position is {Vline.XorY}')
+        plt.draw()
+        plt.pause(.1)
+
+        plt.show()
 

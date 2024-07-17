@@ -21,8 +21,8 @@ handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, loc='upper right')
 
 
-while Vline.XorY != 0:
-
+while Vline.XorY > 0:
+    handles, labels = ax.get_legend_handles_labels()
     print(f'the position is {Vline.XorY}')
     plt.draw()
     plt.pause(.1)
