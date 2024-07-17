@@ -80,7 +80,7 @@ def save_video_queue(image_queue,flag_queue,height,width,fps):
 
 
 if __name__ == '__main__':
-    cv2.namedWindow("preview",cv2.WINDOW_NORMAL)
+    cv2.namedWindow("preview",cv2.WND_PROP_FULLSCREEN)
     cv2.resizeWindow("preview", 960, 540) 
     font = cv2.FONT_HERSHEY_SIMPLEX
     record = False
