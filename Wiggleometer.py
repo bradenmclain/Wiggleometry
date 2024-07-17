@@ -148,7 +148,7 @@ if __name__ == '__main__':
     global_total_red_pix = []
     global_white_count = []
     global_white_count_buffer = []
-    for vid,i  in enumerate([2]):
+    for vid,i  in enumerate([2,3,5]):
         file = f"./data/Second/wiggleometer_deposit_{i}.mp4"
         #file = ['stubbing_trim.mp4','stable_trim.mp4']
         print(f'the file is {file}')
@@ -196,11 +196,19 @@ if __name__ == '__main__':
 
         # plt.show()
         # plt.clf()
+    titles = ['Dripping','Stable','Oscillating']
 
     for idx,vid in enumerate(global_total_red_pix):
     #     #plt.plot(vid)
-        plt.plot(global_white_count[idx],label = f'deposit video {idx}')
-        plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
+        plt.plot(global_white_count[idx],label = titles[idx])
+        #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
+    plt.legend(loc="upper left")
+    plt.show()
+
+    for idx,vid in enumerate(global_total_red_pix):
+    #     #plt.plot(vid)
+        plt.plot(global_total_red_pix[idx],label = titles[idx])
+        #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
     plt.legend(loc="upper left")
     plt.show()
         
