@@ -224,7 +224,7 @@ if __name__ == '__main__':
             #total_red_pix.append(np.sum(test.red))
             total_red_pix.append(np.mean(test.red_buffer))
             #frame_change.append(np.average(test.frame_change_difference))
-            frame_change.append(test.frame_change_difference)
+            frame_change.append(np.mean(np.asarray(test.frame_change_buffer,dtype=np.float64)))
             white_count_buffer.append(np.average(test.white_pixel_buffer))
             white_count.append(np.sum(test.white))
             # plt.plot(frame_change)
@@ -252,7 +252,7 @@ if __name__ == '__main__':
         # plt.show()
         # plt.clf()
     titles = ['Dripping Deposition','Stable Deposition','Oscillating Deposition']
-    titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition', 'Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
+    titles = ['Stable-Oscillating Deposition 1', 'Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
 
     for idx,vid in enumerate(global_total_red_pix):
     #     #plt.plot(vid)
@@ -269,7 +269,7 @@ if __name__ == '__main__':
 
     for idx,vid in enumerate(global_total_red_pix):
     #     #plt.plot(vid)
-        plt.plot(global_total_red_pix[idx],label = f'{titles[videos[idx-1]]}')
+        plt.plot(global_frame_change[idx],label = f'{titles[idx]}')
         #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
     plt.legend(loc="upper left")
 
