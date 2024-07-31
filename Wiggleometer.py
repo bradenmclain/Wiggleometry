@@ -28,6 +28,7 @@ class Wiggleometer:
         self.deposit_state = 'Initalize'
         self.threshold = threshold
 
+
         #thresholding parameters
         self.deposit_state_threshold = 3687626
 
@@ -69,7 +70,9 @@ class Wiggleometer:
         self.red_buffer.append(np.sum(self.red))
 
         self.gray_image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY) 
-        self.gray = cv2.GaussianBlur(src=self.gray_image, ksize=(5, 5), sigmaX=0.5)
+        self.gray_image = cv2.GaussianBlur(src=self.gray_image, ksize=(5, 5), sigmaX=0.5)
+
+        self.green_blue = self.frame[:,:,0]/2 + self.frame[:,:,1]/2
 
         self.binary_image = np.zeros_like(self.gray_image)
         self.binary_image[np.where(self.gray_image>self.threshold)] = 255
@@ -207,7 +210,7 @@ if __name__ == '__main__':
         white_count = []
         white_count_buffer = []
         gray_change = []
-        #plt.ion()
+        plt.ion()
 
         while test.state:
             test.classification_analysis()
@@ -216,9 +219,30 @@ if __name__ == '__main__':
             #print(test.deposit_state)
             display_img = cv2.putText(test.frame,test.stability_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
             display_img = cv2.putText(display_img,test.deposit_state,(10,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
+           
+            left_box_vals = test.gray_image[:,0:300]
+            right_box_vals = test.gray_image[:,1620:1920]
+            box_vals = np.append(left_box_vals,right_box_vals)
+            hist = np.histogram(box_vals, bins=255, range=[0, 255])[0]
+            print(hist)
+            thresh = np.max(box_vals)
+            print(f'max "black" value is :{thresh}')
+            # print(test.gray_image)
+            # print('made it')
+            plt.plot(hist)
+            plt.xlim([5,70])
+            plt.ylim([0,100])
+            
+            # plt.title("Histogram with 'auto' bins")
+            plt.draw()
+            plt.pause(.01)
+            plt.clf()
             #out.write(display_img)
-            cv2.imshow('frame',test.binary_image)
-            cv2.waitKey(30)
+            cv2.imshow('frame',test.gray_image)
+            if thresh > 10:
+                cv2.waitKey(2000)
+            else:
+                cv2.waitKey(10)
             test.get_frame()
             #total_red_pix.append(np.sum(test.red))
             total_red_pix.append(np.mean(test.red_buffer))
