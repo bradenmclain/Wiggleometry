@@ -35,6 +35,8 @@ class Wiggleometer:
         self.trim_index = []
         self.engage_index = []
         self.retract_index = []
+        self.active_event = False
+        self.local_stub_indecies = []
         
 
 
@@ -131,42 +133,55 @@ class Wiggleometer:
         self.frame_change = np.sum(self.binary_image - self.binary_image_ring_buffer[0],dtype=np.float64)
         self.frame_change_buffer.append(self.frame_change)
         self.frame_change_difference = np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64))
-        self.stub_frequency_buffer.append(self.frame_change)
+        self.stub_frequency_buffer.append(np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64)))
 
     def get_stability_state(self):
-
+        self.active_event = False
+        init_offset = 8
+        stub_timing_factor = 1.3
         #print(self.stub_count)
         if self.deposit_state != 'Depositing':
             self.stability_state = 'Not Depositing'
 
         elif np.mean(self.total_intensity_buffer) > self.balling_threshold:
             self.stability_state = 'Balling'
-            print('it was balling maybe?')
 
         else:
-            start = time.time()
-            peaks,__ = find_peaks(np.asarray(self.stub_frequency_buffer),prominence = 2000000,plateau_size = 1,width=1)
-            end = time.time()- start
-            #print(f'it took {end} seconds for an 8 sized one')
-            prominences = peak_prominences(np.asarray(self.stub_frequency_buffer), peaks)[0]
-            print(peaks)
-            print(prominences)
+            peaks,__ = find_peaks(np.asarray(self.stub_frequency_buffer),prominence = 500000,plateau_size = 1,width=1)
+
+            if len(peaks) != 0:
+                if (self.frame_idx-(10-peaks[0])) not in (self.stub_indecies):
+                    self.stub_indecies.append(self.frame_idx-(10-peaks[0]))
+                    self.local_stub_indecies.append(self.frame_idx-(10-peaks[0]))
+                    self.active_event = True
+                    print('EVENT DETECTED')
+                self.stability_state = 'Stubbing'
+
             if np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64)) > self.stubbing_threshold:
                 self.stability_state = 'Stubbing'
                 self.stub_count +=1 
+                print('stubbing from thresholding')
+            elif len(self.local_stub_indecies) == 1:
+                if self.frame_idx <= self.local_stub_indecies[0] + init_offset:
+                    self.stability_state = 'Stubbing' 
+                    print('stubbing from init')
+                else:
+                    self.local_stub_indecies = []
+                    print('CLEARING LOCAL INDEX')
+            elif len(self.local_stub_indecies) > 1:
+                if self.frame_idx<=(((self.local_stub_indecies[-1] - self.local_stub_indecies[-2]) * stub_timing_factor) + self.local_stub_indecies[-1]):
+                    self.stability_state = 'Stubbing'
+                    print('stubbing from previous')
+                    #print('Stubbing from previous stubs')
+                else:
+                    self.local_stub_indecies = []
+                    print('CLEARING LOCAL INDEX')
             else:
-                self.stability_state = 'Stable' 
-                #print('i was stable')
-            if len(peaks) != 0:
-                
-                self.stub_indecies.append(self.frame_idx-(10-peaks[0]))
-                self.stability_state = 'Stubbing'
+                self.stability_state = 'Stable'
+                self.local_stub_indecies = []
 
-            if len(self.stub_indecies) == 1 and self.stub_indecies[0] + 12 >= self.frame_idx:
-                self.stability_state = 'Stubbing'
 
-            if len(self.stub_indecies) > 1 and ((self.stub_indecies[-1]) - self.stub_indecies[-2])*2 + self.stub_indecies[-1] > self.frame_idx:
-                self.stability_state = 'Stubbing'                
+
 
 
     def adjust_threshold(self):
@@ -208,8 +223,19 @@ class Wiggleometer:
         if self.deposit_state == 'Retract':
             self.retract_index.append(self.frame_idx)
 
+    def get_convex_hull(self):
+        contours, _ = cv2.findContours(self.binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        
+        #Find the convex hull of the largest contour
+        if contours:
+            largest_contour = max(contours, key=cv2.contourArea)
+            hull = cv2.convexHull(largest_contour)
+
+            # Draw the convex hull on a new image
+            hull_image = np.zeros_like(self.binary_image)
+            cv2.drawContours(hull_image, [hull], 0, 255, thickness=cv2.FILLED)
+            wire = hull_image - test.binary_image
+    
     def get_median_pixel_intensity(self):
         bound_box = test.gray_image[int(roi[1]):int(roi[1]+roi[3]), int(roi[0]):int(roi[0]+roi[2])]
 
@@ -230,7 +256,26 @@ class Wiggleometer:
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
 
+def find_stub_indecies(binary_change,trim_index,engage_index,retract_index):
+    peaks,__ = find_peaks(binary_change,prominence = 1000000,plateau_size = 1,width=1,height = test.stubbing_threshold)
+    prominences = peak_prominences(binary_change, peaks)[0]
+    print(prominences)
 
+    post_process_deposit_peaks = np.asarray(peaks)
+    mask = ~np.isin(post_process_deposit_peaks, trim_index+engage_index+retract_index)
+    stubs = peaks[mask]
+
+    if len(engage_index) > 0:
+        stubs = stubs[(np.max(engage_index) < stubs)]
+        
+
+    if len(retract_index) > 0:
+        stubs = stubs[(stubs < np.min(retract_index))]
+    
+    return stubs
+
+def find_stub_lengths():
+    pass
 
 if __name__ == '__main__':
 
@@ -244,8 +289,9 @@ if __name__ == '__main__':
     global_median = []
     global_total_pix = []
     global_total_intensity = []
+    global_deposition_data = []
     videos = [1,2,3,4,5,6,7]
-    files = [1,2,3,4,5,6,7]
+    files = [6,7]
     roi = [795,444,305,588]
     threshold = 100
 
@@ -266,6 +312,13 @@ if __name__ == '__main__':
         total_pix = []
         frame = 0
         peak_indexs = []
+        deposit_data = {'stub_indecies':[],
+                        'stub_lengths': [],
+                        'stub_intensities':[],
+                        'length':0,
+                        'total_stub_events':0
+                        
+        }
 
         stub_idx = 0
         
@@ -275,24 +328,13 @@ if __name__ == '__main__':
             test.classification_analysis()
             test.get_deposit_state()
             test.get_stability_state()
-            #test.get_stability_state()
             display_img = cv2.putText(test.frame,test.stability_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
             display_img = cv2.putText(display_img,test.deposit_state,(10,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
-            #contours, _ = cv2.findContours(test.binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-            # Find the convex hull of the largest contour
-            # if contours:
-            #     largest_contour = max(contours, key=cv2.contourArea)
-            #     hull = cv2.convexHull(largest_contour)
+            if test.active_event:
+                display_img = cv2.putText(display_img,'OSCILLATION DETECTED',(1200,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
 
-            #     # Draw the convex hull on a new image
-            #     hull_image = np.zeros_like(test.binary_image)
-            #     cv2.drawContours(hull_image, [hull], 0, 255, thickness=cv2.FILLED)
-            #     wire = hull_image - test.binary_image
-                # cv2.imshow('hull image',hull_image)
-                # cv2.imshow('wire',wire)
-                # cv2.waitKey(10)
-            
+
            
             #if test.deposit_state == 'Depositing':
             #     start = time.time()
@@ -314,7 +356,9 @@ if __name__ == '__main__':
 
         #print(peak_indexs)
 
-        
+        binary_change = np.asarray(binary_change)
+        stubs = find_stub_indecies(binary_change,test.trim_index,test.engage_index,test.retract_index)
+
         der = np.gradient((binary_change))
         sec_der = np.gradient(der) 
         sec_der = (sec_der**2) * np.sign(sec_der)
@@ -322,54 +366,54 @@ if __name__ == '__main__':
 
         maxima,__ = find_peaks(sec_der,prominence=100000000000)
         minima,__ = find_peaks(sec_der*-1,prominence=100000000000)
-        # prominences_maxima = peak_prominences(sec_der, maxima)[0]
-        # print(prominences_maxima)
-        # prominences_minima = peak_prominences(sec_der*-1, minima)[0]
-        # print(prominences_minima)
-        start = time.time()
-        peaks,__ = find_peaks(binary_change,prominence = 1500000,plateau_size = 1)
-        widths = peak_widths(binary_change,peaks,rel_height = 1)
 
-        end = time.time() - start
-        print(f'the big one took {end} seconds')
-
-        mask = ~np.isin(peaks, test.trim_index+test.engage_index+test.retract_index)
-        deposit_peaks = peaks[mask]
-
-        print(test.engage_index)
-
-        test_list = np.asarray(list(set(test.stub_indecies)))
-        mask2 = ~np.isin(test_list, test.trim_index+test.engage_index+test.retract_index)
-        test_list = test_list[mask2]
-        test_list = test_list[(np.max(test.engage_index)<test_list)]
-
-
-
-        print(deposit_peaks)
-        print(test_list)
-
-        print(f'during test detected {len(test_list)} stubs')
-        print(f'after test detected {len(deposit_peaks)} stubs')
-        
-
-        # #print(peaks)
         # for peak in maxima:
         #     plt.plot(peak+1,binary_change[peak+1],'*',color='red')
 
         # for peak in minima:
         #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
-        
-        plt.subplot(1, 2, 1) 
-        plt.plot(gaussian_filter1d(binary_change,2),color = 'green')
-        plt.plot(binary_change,color = 'blue')
-        for peak in deposit_peaks:
+
+        for peak in stubs:
             plt.plot(peak,binary_change[peak],'*',color = 'black')
-        plt.subplot(1, 2, 2) 
-        plt.plot(binary_change,color = 'blue')
-        for peak in test.stub_indecies:
-            plt.plot(peak,binary_change[peak],'*',color = 'red')
-        plt.tight_layout()
+
+        
+        plt.plot(binary_change,color='blue')
         plt.show()
+        deposit_data.update({'stub_indecies':stubs})
+        deposit_data.update({'stub_intensities':binary_change[stubs]})
+        deposit_data.update({'length':((np.max(test.retract_index)-np.min(test.engage_index))/30)})
+        deposit_data.update({'total_stub_occurances':len(stubs)})
+
+   
+        #test_list = np.asarray(list(set(test.stub_indecies)))
+        live_deposit_peaks = np.asarray(test.stub_indecies)
+        mask2 = ~np.isin(live_deposit_peaks, test.trim_index+test.engage_index+test.retract_index)
+        live_deposit_peaks = live_deposit_peaks[mask2]
+        live_deposit_peaks = live_deposit_peaks[(np.max(test.engage_index) < live_deposit_peaks) | (live_deposit_peaks < np.min(test.retract_index))]        
+
+        print(f'during test detected {len(live_deposit_peaks)} stubs')
+        print(f'after test detected {len(stubs)} stubs')
+
+        print(f'the deposition lasted {((np.max(test.retract_index)-np.min(test.engage_index))/30)} seconds')
+
+        print(live_deposit_peaks)
+        print(stubs)
+        
+
+        # #print(peaks)
+
+        
+        # plt.subplot(1, 2, 1) 
+        # plt.plot(binary_change,color = 'green')
+        # plt.plot(binary_change,color = 'blue')
+        # for peak in post_process_deposit_peaks:
+        #     plt.plot(peak,binary_change[peak],'*',color = 'black')
+        # plt.subplot(1, 2, 2) 
+        # plt.plot(binary_change,color = 'blue')
+        # for peak in live_deposit_peaks:
+        #     plt.plot(peak,binary_change[peak],'*',color = 'red')
+        # plt.tight_layout()
+        # plt.show()
         
         global_binary_change.append(binary_change)
         #global_median.append(moving_average(median,5))
@@ -418,11 +462,11 @@ if __name__ == '__main__':
         
         # plt.plot(pixel_count_array)
         # plt.show()
-    while Vline.XorY > 0:
-        handles, labels = ax.get_legend_handles_labels()
-        print(f'the position is {Vline.XorY}')
-        plt.draw()
-        plt.pause(.1)
+    # while Vline.XorY > 0:
+    #     handles, labels = ax.get_legend_handles_labels()
+    #     print(f'the position is {Vline.XorY}')
+    #     plt.draw()
+    #     plt.pause(.1)
 
-        plt.show()
+    #     plt.show()
 
