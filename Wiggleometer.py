@@ -256,14 +256,14 @@ class Wiggleometer:
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
 
-def find_stub_indecies(binary_change,trim_index,engage_index,retract_index):
+def find_stub_indecies(binary_change,engage_index,retract_index):
     peaks,__ = find_peaks(binary_change,prominence = 1000000,plateau_size = 1,width=1,height = test.stubbing_threshold)
     prominences = peak_prominences(binary_change, peaks)[0]
     print(prominences)
 
-    post_process_deposit_peaks = np.asarray(peaks)
-    mask = ~np.isin(post_process_deposit_peaks, trim_index+engage_index+retract_index)
-    stubs = peaks[mask]
+    stubs = np.asarray(peaks)
+    # mask = ~np.isin(post_process_deposit_peaks, trim_index+engage_index+retract_index)
+    # stubs = peaks[mask]
 
     if len(engage_index) > 0:
         stubs = stubs[(np.max(engage_index) < stubs)]
@@ -274,7 +274,92 @@ def find_stub_indecies(binary_change,trim_index,engage_index,retract_index):
     
     return stubs
 
-def find_stub_lengths():
+def find_stub_lengths(binary_change,stub_indecies,engage_index,retract_index):
+    der = np.gradient((binary_change))
+    sec_der = np.gradient(der) 
+    sec_der = (sec_der**2) * np.sign(sec_der)
+    sec_der = moving_average(sec_der,4)
+
+    maxima,__ = find_peaks(sec_der,prominence=10000000000)
+    minima,__ = find_peaks(sec_der*-1,prominence=10000000000)
+    maxima_prominences = peak_prominences(sec_der, maxima)[0]
+
+    for peak in maxima:
+        plt.plot(peak+1,binary_change[peak+1],'*',color='red')
+
+    # for peak in minima:
+    #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
+
+    for peak in stub_indecies:
+        plt.plot(peak,binary_change[peak],'*',color = 'black')
+
+    plt.plot(binary_change)
+
+    plt.show()
+
+    maxima = np.asarray(maxima)
+    minima = np.asarray(minima)
+    print(f'the original length was {len(maxima)}')
+
+
+
+    if len(engage_index) > 0:
+        maxima = maxima[(np.max(engage_index) < maxima)]
+        
+
+    if len(retract_index) > 0:
+        maxima = maxima[(maxima < np.min(retract_index))]
+    print(f' the trimmed length is {len(maxima)}')
+
+    for peak in maxima:
+        plt.plot(peak+1,binary_change[peak+1],'*',color='red')
+
+    # for peak in minima:
+    #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
+
+    for peak in stub_indecies:
+        plt.plot(peak,binary_change[peak],'*',color = 'black')
+
+    plt.plot(binary_change)
+
+    plt.show()
+
+
+
+
+    deposit_maxima = []
+
+
+    for peak in maxima:
+        plt.plot(peak+1,binary_change[peak+1],'*',color='red')
+
+    # for peak in minima:
+    #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
+
+    for peak in stub_indecies:
+        plt.plot(peak,binary_change[peak],'*',color = 'black')
+
+    # plt.plot(binary_change)
+
+    # plt.show()
+
+    # for peak in maxima:
+    #     plt.plot(peak,sec_der[peak],'*',color='red')
+
+    # for peak in minima:
+    #     plt.plot(peak,sec_der[peak],'*',color = 'green')
+
+    # # for peak in stub_indecies:
+    # #     plt.plot()
+
+    # plt.plot(sec_der)
+    # plt.show()
+    
+    # #plt.plot(binary_change)
+
+    # plt.show()
+    
+    
     pass
 
 if __name__ == '__main__':
@@ -291,7 +376,7 @@ if __name__ == '__main__':
     global_total_intensity = []
     global_deposition_data = []
     videos = [1,2,3,4,5,6,7]
-    files = [6,7]
+    files = [4]
     roi = [795,444,305,588]
     threshold = 100
 
@@ -357,24 +442,9 @@ if __name__ == '__main__':
         #print(peak_indexs)
 
         binary_change = np.asarray(binary_change)
-        stubs = find_stub_indecies(binary_change,test.trim_index,test.engage_index,test.retract_index)
+        stubs = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
 
-        der = np.gradient((binary_change))
-        sec_der = np.gradient(der) 
-        sec_der = (sec_der**2) * np.sign(sec_der)
-        sec_der = moving_average(sec_der,4)
-
-        maxima,__ = find_peaks(sec_der,prominence=100000000000)
-        minima,__ = find_peaks(sec_der*-1,prominence=100000000000)
-
-        # for peak in maxima:
-        #     plt.plot(peak+1,binary_change[peak+1],'*',color='red')
-
-        # for peak in minima:
-        #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
-
-        for peak in stubs:
-            plt.plot(peak,binary_change[peak],'*',color = 'black')
+        find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
         
         plt.plot(binary_change,color='blue')
@@ -403,17 +473,7 @@ if __name__ == '__main__':
         # #print(peaks)
 
         
-        # plt.subplot(1, 2, 1) 
-        # plt.plot(binary_change,color = 'green')
-        # plt.plot(binary_change,color = 'blue')
-        # for peak in post_process_deposit_peaks:
-        #     plt.plot(peak,binary_change[peak],'*',color = 'black')
-        # plt.subplot(1, 2, 2) 
-        # plt.plot(binary_change,color = 'blue')
-        # for peak in live_deposit_peaks:
-        #     plt.plot(peak,binary_change[peak],'*',color = 'red')
-        # plt.tight_layout()
-        # plt.show()
+
         
         global_binary_change.append(binary_change)
         #global_median.append(moving_average(median,5))
