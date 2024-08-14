@@ -7,6 +7,9 @@ from scipy.stats import gmean
 from draggable_lines import draggable_lines
 from scipy.signal import find_peaks, peak_prominences, peak_widths
 from scipy.ndimage import gaussian_filter1d
+from scipy import interpolate
+from scipy.optimize import root_scalar
+
 
 class Wiggleometer: 
 
@@ -257,11 +260,38 @@ def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
 
 def find_stub_indecies(binary_change,engage_index,retract_index):
+    
     peaks,__ = find_peaks(binary_change,prominence = 1000000,plateau_size = 1,width=1,height = test.stubbing_threshold)
-    prominences = peak_prominences(binary_change, peaks)[0]
+    prominences = peak_prominences(binary_change, peaks)
     print(prominences)
 
     stubs = np.asarray(peaks)
+    der = np.gradient((binary_change))
+    sec_der = np.gradient(der) 
+
+    x_org = np.arange(0,len(der))
+
+    der_interp_function = interpolate.interp1d(x_org,der)
+    xnew = np.arange(0,len(der)-1,.01)
+    
+    new_der = der_interp_function(xnew)
+
+    zero_crossings = []
+    for i in range(1, len(x_org)):
+        if der[i-1] * der[i] < 0:  # Sign change detected
+            # Step 2: Refine the zero crossing using root_scalar
+            root_result = root_scalar(der_interp_function, bracket=[x_org[i-1], x_org[i]])
+            if root_result.converged:
+                zero_crossings.append(root_result.root)
+
+    #plt.plot(x_org,der,color = 'blue')
+    plt.plot(peaks, binary_change[peaks], "x")
+    plt.plot(binary_change,color = 'green')
+    plt.axhline(0, color='black', linestyle='--', lw=0.8)  # Add a horizontal line at y=0
+    plt.scatter(zero_crossings, der_interp_function(np.array(zero_crossings)), color='red', zorder=5, label='Zero Crossings')
+    plt.legend()
+    plt.show()
+
     # mask = ~np.isin(post_process_deposit_peaks, trim_index+engage_index+retract_index)
     # stubs = peaks[mask]
 
@@ -271,31 +301,27 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
 
     if len(retract_index) > 0:
         stubs = stubs[(stubs < np.min(retract_index))]
+
+    results_half = peak_widths(binary_change, peaks, rel_height=0.5)
+    results_full = peak_widths(binary_change, peaks, rel_height=1, prominence_data=prominences)
+    plt.hlines(*results_half[1:], color="C2")
+    plt.plot(binary_change)
+    plt.plot(xnew,new_der,color = 'green')
+    plt.plot(peaks, binary_change[peaks], "x")
+    plt.plot()
+    
     
     return stubs
 
 def find_stub_lengths(binary_change,stub_indecies,engage_index,retract_index):
     der = np.gradient((binary_change))
     sec_der = np.gradient(der) 
-    sec_der = (sec_der**2) * np.sign(sec_der)
-    sec_der = moving_average(sec_der,4)
+    #sec_der = (sec_der**2) * np.sign(sec_der)
+    #sec_der = moving_average(sec_der,4)
 
     maxima,__ = find_peaks(sec_der,prominence=10000000000)
     minima,__ = find_peaks(sec_der*-1,prominence=10000000000)
     maxima_prominences = peak_prominences(sec_der, maxima)[0]
-
-    for peak in maxima:
-        plt.plot(peak+1,binary_change[peak+1],'*',color='red')
-
-    # for peak in minima:
-    #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
-
-    for peak in stub_indecies:
-        plt.plot(peak,binary_change[peak],'*',color = 'black')
-
-    plt.plot(binary_change)
-
-    plt.show()
 
     maxima = np.asarray(maxima)
     minima = np.asarray(minima)
@@ -311,53 +337,35 @@ def find_stub_lengths(binary_change,stub_indecies,engage_index,retract_index):
         maxima = maxima[(maxima < np.min(retract_index))]
     print(f' the trimmed length is {len(maxima)}')
 
+    if len(engage_index) > 0:
+        minima = minima[(np.max(engage_index) < minima)]
+        
+
+    if len(retract_index) > 0:
+        minima = minima[(minima < np.min(retract_index))]
+    print(f' the trimmed length is {len(maxima)}')
+
     for peak in maxima:
-        plt.plot(peak+1,binary_change[peak+1],'*',color='red')
+        plt.plot(peak,binary_change[peak],'*',color='red')
+
+    for peak in minima:
+        plt.plot(peak,binary_change[peak],'*',color='green')
+    
+    plt.plot(binary_change)
+    plt.plot(sec_der,color='orange')
 
     # for peak in minima:
     #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
-
-    for peak in stub_indecies:
-        plt.plot(peak,binary_change[peak],'*',color = 'black')
-
-    plt.plot(binary_change)
-
-    plt.show()
-
-
 
 
     deposit_maxima = []
 
 
-    for peak in maxima:
-        plt.plot(peak+1,binary_change[peak+1],'*',color='red')
-
-    # for peak in minima:
-    #     plt.plot(peak-1,binary_change[peak-1],'*',color = 'green')
 
     for peak in stub_indecies:
         plt.plot(peak,binary_change[peak],'*',color = 'black')
 
-    # plt.plot(binary_change)
-
-    # plt.show()
-
-    # for peak in maxima:
-    #     plt.plot(peak,sec_der[peak],'*',color='red')
-
-    # for peak in minima:
-    #     plt.plot(peak,sec_der[peak],'*',color = 'green')
-
-    # # for peak in stub_indecies:
-    # #     plt.plot()
-
-    # plt.plot(sec_der)
-    # plt.show()
-    
-    # #plt.plot(binary_change)
-
-    # plt.show()
+    plt.show()
     
     
     pass
@@ -444,7 +452,7 @@ if __name__ == '__main__':
         binary_change = np.asarray(binary_change)
         stubs = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
 
-        find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
+        #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
         
         plt.plot(binary_change,color='blue')
