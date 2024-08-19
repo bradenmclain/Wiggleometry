@@ -263,7 +263,6 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
     
     peaks,__ = find_peaks(binary_change,prominence = 1000000,plateau_size = 1,width=1,height = test.stubbing_threshold)
     prominences = peak_prominences(binary_change, peaks)
-    print(prominences)
 
     stubs = np.asarray(peaks)
     der = np.gradient((binary_change))
@@ -271,12 +270,20 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
 
     x_org = np.arange(0,len(der))
 
+    interp_function = interpolate.interp1d(x_org,binary_change)
+    inverse_interp_function = interpolate.interp1d(binary_change,x_org)
+
     der_interp_function = interpolate.interp1d(x_org,der)
     xnew = np.arange(0,len(der)-1,.01)
     
     new_der = der_interp_function(xnew)
+    new_sec_der = np.gradient(new_der)
+    sec_der_interp_function = interpolate.interp1d(xnew,new_sec_der)
 
     zero_crossings = []
+    der_peaks = []
+    der_valleys = []
+
     for i in range(1, len(x_org)):
         if der[i-1] * der[i] < 0:  # Sign change detected
             # Step 2: Refine the zero crossing using root_scalar
@@ -284,13 +291,25 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
             if root_result.converged:
                 zero_crossings.append(root_result.root)
 
+ 
     #plt.plot(x_org,der,color = 'blue')
-    plt.plot(peaks, binary_change[peaks], "x")
-    plt.plot(binary_change,color = 'green')
-    plt.axhline(0, color='black', linestyle='--', lw=0.8)  # Add a horizontal line at y=0
-    plt.scatter(zero_crossings, der_interp_function(np.array(zero_crossings)), color='red', zorder=5, label='Zero Crossings')
-    plt.legend()
-    plt.show()
+    # plt.plot(peaks, binary_change[peaks], "x")
+    # plt.plot(binary_change,color = 'green')
+    # plt.axhline(0, color='black', linestyle='--', lw=0.8)  # Add a horizontal line at y=0
+    for zero_crossing in zero_crossings:
+        if sec_der_interp_function(zero_crossing) >= 0:
+            #plt.scatter(zero_crossing, der_interp_function(np.array(zero_crossing)), color='red', zorder=5, label='Zero Crossings')
+            der_valleys.append(zero_crossing)
+        else:
+            #plt.scatter(zero_crossing, der_interp_function(np.array(zero_crossing)), color='blue', zorder=5, label='Zero Crossings')
+            der_peaks.append(zero_crossing)
+
+
+
+        
+
+    # plt.legend()
+    # plt.show()
 
     # mask = ~np.isin(post_process_deposit_peaks, trim_index+engage_index+retract_index)
     # stubs = peaks[mask]
@@ -301,6 +320,44 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
 
     if len(retract_index) > 0:
         stubs = stubs[(stubs < np.min(retract_index))]
+
+
+    for peak in stubs:
+
+        left = int(np.where(((np.diff(np.sign(der_valleys-peak)) != 0)*1)==1)[0])
+        if left != None:
+            right = int(left + 1)
+            #print(peak)
+            #print(der_valleys[int(left)],der_valleys[int(right)])
+            peak_time = der_valleys[int(right)] - der_valleys[int(left)]
+            print(f'peak lasted {peak_time/30} seconds')
+            # plt.plot(der_valleys[int(left)], interp_function(der_valleys[int(left)]), color='red', marker=".")
+            # plt.plot(der_valleys[int(right)], interp_function(der_valleys[int(right)]), color='green', marker='.')
+            # plt.plot(peak,interp_function(peak),marker='.',color='black')
+
+            local_ynew = np.arange(interp_function(der_valleys[int(right)]),interp_function(der_valleys[int(left)]),.1)
+            #print(local_ynew)
+            #print(f'the length is {len(local_ynew)}')
+
+
+            if interp_function(der_valleys[int(left)]) > interp_function(der_valleys[int(right)]):
+                local_ynew = np.linspace(interp_function(round(der_valleys[int(right)])),interp_function(round(der_valleys[int(left)])),20)
+                local_inverse_interp_function = interpolate.interp1d(binary_change[round(der_valleys[int(left)]):round(der_valleys[int(right)])],x_org[round(der_valleys[int(left)]):round(der_valleys[int(right)])])
+
+                vals = local_inverse_interp_function(local_ynew)
+                zero_vals = (vals- der_valleys[int(left)])
+                plt.plot(zero_vals)
+                plt.show()
+                pass
+            else:
+                #print('right was greater')
+                pass
+
+
+    plt.plot(binary_change)
+    plt.show()
+
+
 
     results_half = peak_widths(binary_change, peaks, rel_height=0.5)
     results_full = peak_widths(binary_change, peaks, rel_height=1, prominence_data=prominences)
@@ -384,7 +441,7 @@ if __name__ == '__main__':
     global_total_intensity = []
     global_deposition_data = []
     videos = [1,2,3,4,5,6,7]
-    files = [4]
+    files = [4,5,6]
     roi = [795,444,305,588]
     threshold = 100
 
@@ -440,7 +497,7 @@ if __name__ == '__main__':
             total_pix.append(np.sum(test.binary_image))
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
             # cv2.imshow('frame',display_img)
-            # cv2.waitKey(10)
+            # cv2.waitKey(30)
 
             test.get_frame()
             
