@@ -289,7 +289,9 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
             # Step 2: Refine the zero crossing using root_scalar
             root_result = root_scalar(der_interp_function, bracket=[xnew[i-1], xnew[i]])
             if root_result.converged:
-                zero_crossings.append(root_result.root)
+                zero_crossings.append(round(root_result.root))
+                print(root_result.root)
+                print(round(root_result.root))
 
  
     for zero_crossing in zero_crossings:
@@ -312,9 +314,7 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
     for peak in stubs:
 
         left = int(np.where(((np.diff(np.sign(der_valleys-peak)) != 0)*1)==1)[0])
-        print(f'earlier left is {left}')
         if left != None:
-            print(f'left is {left}')
             right = (left + 1)
             #print(peak)
             #print(der_valleys[int(left)],der_valleys[int(right)])
@@ -329,7 +329,6 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
                 plt.plot(der_valleys[int(left)],interp_function(der_valleys[int(left)]),marker='*',color = 'blue')
                 new_point = (np.where(((np.diff(np.sign(local_y-interp_function(der_valleys[int(left)]))) != 0)*1)==1))
                 plt.plot(local_x[new_point[-1]],local_y[new_point[-1]])
-                print(new_point)
                 pass
             else:
                 plt.plot(der_valleys[int(right)],interp_function(der_valleys[int(right)]),marker='*',color = 'purple')
@@ -337,10 +336,9 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
                 plt.plot(local_x[new_point[0]],local_y[new_point[0]])
                 pass
 
-            
-            plt.plot(binary_change)
-            plt.plot(local_x,local_y,color='green')
-            plt.show()
+            #plt.plot(xnew,new_der)
+    plt.plot(binary_change)
+    plt.show()
 
 
 
