@@ -90,6 +90,9 @@ class Wiggleometer:
         binary_pixel_count = np.sum(self.binary_image)
         self.binary_pixel_count_buffer.append(binary_pixel_count)
 
+        self.white = np.zeros_like(self.gray_image)
+        self.white[np.where(self.gray_image>250)] = 255
+
     def resize_frame(self):
         self.frame = cv2.resize(self.frame, None, fx = 0.5, fy = 0.5, interpolation = cv2.INTER_CUBIC)
     
@@ -262,19 +265,16 @@ def moving_average(x, w):
 def find_stub_indecies(binary_change,engage_index,retract_index):
     
     peaks,__ = find_peaks(binary_change,prominence = 1000000,plateau_size = 1,width=1,height = test.stubbing_threshold)
-    prominences = peak_prominences(binary_change, peaks)
 
     stubs = np.asarray(peaks)
     der = np.gradient((binary_change))
-    sec_der = np.gradient(der) 
 
     x_org = np.arange(0,len(der))
 
     interp_function = interpolate.interp1d(x_org,binary_change)
-    inverse_interp_function = interpolate.interp1d(binary_change,x_org)
 
     der_interp_function = interpolate.interp1d(x_org,der)
-    xnew = np.arange(0,len(der)-1,.01)
+    xnew = np.arange(0,len(der)-1,.001)
     
     new_der = der_interp_function(xnew)
     new_sec_der = np.gradient(new_der)
@@ -289,9 +289,8 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
             # Step 2: Refine the zero crossing using root_scalar
             root_result = root_scalar(der_interp_function, bracket=[xnew[i-1], xnew[i]])
             if root_result.converged:
-                zero_crossings.append(round(root_result.root))
+                zero_crossings.append((root_result.root))
                 print(root_result.root)
-                print(round(root_result.root))
 
  
     for zero_crossing in zero_crossings:
@@ -310,48 +309,46 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
     if len(retract_index) > 0:
         stubs = stubs[(stubs < np.min(retract_index))]
 
-
+    lengths = []
+    positions = []
     for peak in stubs:
 
-        left = int(np.where(((np.diff(np.sign(der_valleys-peak)) != 0)*1)==1)[0])
+        left = (np.where(((np.diff(np.sign(der_valleys-peak)) != 0)*1)==1)[0])
+        if left.size > 0:
+            left = int(left[0])
         if left != None:
             right = (left + 1)
-            #print(peak)
-            #print(der_valleys[int(left)],der_valleys[int(right)])
-            peak_time = der_valleys[int(right)] - der_valleys[int(left)]
-            print(f'peak lasted {peak_time/30} seconds')
 
-            local_x = np.arange((der_valleys[int(left)]),(der_valleys[int(right)]),.01)
+            local_x = np.arange((der_valleys[int(left)]),(der_valleys[int(right)]),.001)
             local_y = interp_function(local_x)
 
-
+            #if the left point is higher up, use that and the right point locally horizontal to it
             if interp_function(der_valleys[int(left)]) > interp_function(der_valleys[int(right)]):
-                plt.plot(der_valleys[int(left)],interp_function(der_valleys[int(left)]),marker='*',color = 'blue')
-                new_point = (np.where(((np.diff(np.sign(local_y-interp_function(der_valleys[int(left)]))) != 0)*1)==1))
-                plt.plot(local_x[new_point[-1]],local_y[new_point[-1]])
-                pass
+                new_point = (np.where(((np.diff(np.sign(interp_function(der_valleys[int(left)])-local_y)) != 0)*1)==1))
+                if new_point[0].size > 1:
+                    x1_pos = local_x[new_point[0][0]]
+                    x2_pos = local_x[new_point[0][-1]]
+
+                else:
+                    x1_pos = der_valleys[int(left)]
+                    x2_pos = local_x[new_point[0][0]]
+            #if the right point is higher up, use that and the left point locally horizontal to it
             else:
-                plt.plot(der_valleys[int(right)],interp_function(der_valleys[int(right)]),marker='*',color = 'purple')
                 new_point = (np.where(((np.diff(np.sign(local_y-interp_function(der_valleys[int(right)]))) != 0)*1)==1))
-                plt.plot(local_x[new_point[0]],local_y[new_point[0]])
-                pass
+                
+                #if the newly found line crosses over itself, take the inside points
+                if new_point[0].size > 1:
+                    x1_pos = local_x[new_point[0][0]]
+                    x2_pos = local_x[new_point[0][-1]]
 
-            #plt.plot(xnew,new_der)
-    plt.plot(binary_change)
-    plt.show()
-
-
-
-    results_half = peak_widths(binary_change, peaks, rel_height=0.5)
-    results_full = peak_widths(binary_change, peaks, rel_height=1, prominence_data=prominences)
-    plt.hlines(*results_half[1:], color="C2")
-    plt.plot(binary_change)
-    plt.plot(xnew,new_der,color = 'green')
-    plt.plot(peaks, binary_change[peaks], "x")
-    plt.plot()
+                else:
+                    x1_pos = local_x[new_point[0][0]]
+                    x2_pos = der_valleys[int(right)]
+                    
+            lengths.append((x2_pos-x1_pos)/30)
+            positions.append([x1_pos,x2_pos,interp_function(x1_pos),interp_function(x2_pos)]) 
     
-    
-    return stubs
+    return stubs, lengths, positions
 
 
 if __name__ == '__main__':
@@ -367,8 +364,8 @@ if __name__ == '__main__':
     global_total_pix = []
     global_total_intensity = []
     global_deposition_data = []
-    videos = [1,2,3,4,5,6,7]
-    files = [4,5,6]
+    videos = [1,3,4,5,6,7]
+    files = [2]
     roi = [795,444,305,588]
     threshold = 100
 
@@ -392,7 +389,7 @@ if __name__ == '__main__':
         deposit_data = {'stub_indecies':[],
                         'stub_lengths': [],
                         'stub_intensities':[],
-                        'length':0,
+                        'deposit_length':0,
                         'total_stub_events':0
                         
         }
@@ -422,9 +419,10 @@ if __name__ == '__main__':
             
             binary_change.append(np.mean(np.asarray(test.frame_change_buffer,dtype=np.float64)))
             total_pix.append(np.sum(test.binary_image))
+            white_count.append(np.sum(test.white))
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            # cv2.imshow('frame',display_img)
-            # cv2.waitKey(30)
+            cv2.imshow('frame',test.white)
+            cv2.waitKey(30)
 
             test.get_frame()
             
@@ -434,16 +432,26 @@ if __name__ == '__main__':
         #print(peak_indexs)
 
         binary_change = np.asarray(binary_change)
-        stubs = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
+        # stubs,lengths,positions = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
 
-        #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
+        # #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
         
-        plt.plot(binary_change,color='blue')
+        # plt.plot(binary_change,color='blue')
+        # for position in positions:
+        #     plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
+
         plt.show()
+
+        plt.plot(white_count)
+        plt.plot(moving_average(white_count,10))
+        plt.title('White Count')
+        plt.show()
+        
         deposit_data.update({'stub_indecies':stubs})
+        deposit_data.update({'stub_lengths':lengths})
         deposit_data.update({'stub_intensities':binary_change[stubs]})
-        deposit_data.update({'length':((np.max(test.retract_index)-np.min(test.engage_index))/30)})
+        deposit_data.update({'deposit_length':((np.max(test.retract_index)-np.min(test.engage_index))/30)})
         deposit_data.update({'total_stub_occurances':len(stubs)})
 
    
@@ -468,7 +476,6 @@ if __name__ == '__main__':
 
         
         global_binary_change.append(binary_change)
-        #global_median.append(moving_average(median,5))
         global_total_pix.append(moving_average(total_pix,8))
         global_total_intensity.append(total_intensity)
 
