@@ -24,7 +24,7 @@ def main():
     # Load the video
     video_path = '/home/delta/Wiggleometry/data/Second/wiggleometer_deposit_2.mp4'
     cap = cv2.VideoCapture(video_path)
-
+    #plt.ion()
     if not cap.isOpened():
         print("Error: Video not found or cannot be opened.")
         return
@@ -40,7 +40,9 @@ def main():
     cv2.createTrackbar('B_min', 'Thresholded Video', 0, 255, nothing)
     cv2.createTrackbar('B_max', 'Thresholded Video', 255, 255, nothing)
     above = []
-
+    plt.ion()
+    plt.xlim([0,800])
+    plt.ylim([0,100000])
     while True:
         # Capture frame-by-frame
         ret, frame = cap.read()
@@ -48,6 +50,8 @@ def main():
         if not ret:
             print("End of video reached or error occurred.")
             break
+        
+
 
         # Get current positions of the trackbars
         r_min = cv2.getTrackbarPos('R_min', 'Thresholded Video')
@@ -56,6 +60,13 @@ def main():
         g_max = cv2.getTrackbarPos('G_max', 'Thresholded Video')
         b_min = cv2.getTrackbarPos('B_min', 'Thresholded Video')
         b_max = cv2.getTrackbarPos('B_max', 'Thresholded Video')
+
+        r_min = 255
+        r_max = cv2.getTrackbarPos('R_max', 'Thresholded Video')
+        g_min = 255
+        g_max = cv2.getTrackbarPos('G_max', 'Thresholded Video')
+        b_min = 100
+        b_max = 254
 
         # Set the lower and upper RGB boundaries based on trackbar positions
         lower_rgb = [b_min, g_min, r_min]
@@ -69,14 +80,20 @@ def main():
 
         # Display the counts
         above.append(above_threshold)
-        
+        plt.clf()
+        plt.plot(above)
+        plt.draw()
+        plt.pause(.01)
 
         # Display the thresholded frame
-        cv2.imshow('Thresholded Video', thresholded_frame)
+        cv2.imshow('Thresholded Video', frame)
 
         # Break the loop if the user presses the ESC key
-        if cv2.waitKey(100) & 0xFF == 27:
+        if cv2.waitKey(5) & 0xFF == 27:
             break
+
+        #plt.draw()
+    plt.ioff()
 
     # Release the video capture object and close windows
     cap.release()

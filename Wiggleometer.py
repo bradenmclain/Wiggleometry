@@ -32,6 +32,7 @@ class Wiggleometer:
         self.stub_count = 0
         self.stub_frequency_buffer = collections.deque(maxlen = 10)
         self.sec_der_frequency_buffer = collections.deque(maxlen = 10)
+        self.stability_buffer = collections.deque(maxlen = 4)
         self.stub_indecies = []
         self.frame_idx = 0
         self.pixel_count = 0
@@ -65,9 +66,9 @@ class Wiggleometer:
         for key, value in kwargs.items():
             colors.update({key:value})
 
-        red = self.frame[:, :, 2]
-        green = self.frame[:,:,1]
-        blue = self.frame[:,:,0]
+        self.red = self.frame[:, :, 2]
+        self.green = self.frame[:,:,1]
+        self.blue = self.frame[:,:,0]
         self.no_red = round(((green + blue)/np.max(green+blue))*255)
         self.color_binary_image = np.zeros_like(red)
         self.color_binary_image[np.where(red>colors['red'])] = 255
@@ -92,6 +93,7 @@ class Wiggleometer:
 
         self.white = np.zeros_like(self.gray_image)
         self.white[np.where(self.gray_image>250)] = 255
+
 
     def resize_frame(self):
         self.frame = cv2.resize(self.frame, None, fx = 0.5, fy = 0.5, interpolation = cv2.INTER_CUBIC)
@@ -139,7 +141,7 @@ class Wiggleometer:
         self.frame_change = np.sum(self.binary_image - self.binary_image_ring_buffer[0],dtype=np.float64)
         self.frame_change_buffer.append(self.frame_change)
         self.frame_change_difference = np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64))
-        self.stub_frequency_buffer.append(np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64)))
+        self.stub_frequency_buffer.append(self.frame_change_difference)
 
     def get_stability_state(self):
         self.active_event = False
@@ -149,7 +151,7 @@ class Wiggleometer:
         if self.deposit_state != 'Depositing':
             self.stability_state = 'Not Depositing'
 
-        elif np.mean(self.total_intensity_buffer) > self.balling_threshold:
+        elif np.mean(self.total_intensity_buffer) > self.balling_threshold or self.total_intensity > self.balling_threshold:
             self.stability_state = 'Balling'
 
         else:
@@ -160,28 +162,28 @@ class Wiggleometer:
                     self.stub_indecies.append(self.frame_idx-(10-peaks[0]))
                     self.local_stub_indecies.append(self.frame_idx-(10-peaks[0]))
                     self.active_event = True
-                    print('EVENT DETECTED')
+                    #print('EVENT DETECTED')
                 self.stability_state = 'Stubbing'
 
             if np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64)) > self.stubbing_threshold:
                 self.stability_state = 'Stubbing'
                 self.stub_count +=1 
-                print('stubbing from thresholding')
+                #print('stubbing from thresholding')
             elif len(self.local_stub_indecies) == 1:
                 if self.frame_idx <= self.local_stub_indecies[0] + init_offset:
                     self.stability_state = 'Stubbing' 
-                    print('stubbing from init')
+                    #print('stubbing from init')
                 else:
                     self.local_stub_indecies = []
-                    print('CLEARING LOCAL INDEX')
+                    #print('CLEARING LOCAL INDEX')
             elif len(self.local_stub_indecies) > 1:
                 if self.frame_idx<=(((self.local_stub_indecies[-1] - self.local_stub_indecies[-2]) * stub_timing_factor) + self.local_stub_indecies[-1]):
                     self.stability_state = 'Stubbing'
-                    print('stubbing from previous')
+                    #print('stubbing from previous')
                     #print('Stubbing from previous stubs')
                 else:
                     self.local_stub_indecies = []
-                    print('CLEARING LOCAL INDEX')
+                    #print('CLEARING LOCAL INDEX')
             else:
                 self.stability_state = 'Stable'
                 self.local_stub_indecies = []
@@ -199,24 +201,34 @@ class Wiggleometer:
 
         if self.deposit_state == 'Initalize' and self.frame_change_difference > self.deposit_state_threshold:
             self.deposit_state = 'Trim'
+            print('trim')
             
         
         if self.deposit_state == 'Trim' and self.frame_change < 1000:
             self.deposit_state = 'Awaiting Deposition'
+            print('waiting')
             
 
         if self.deposit_state == 'Awaiting Deposition' and self.frame_change_difference > self.deposit_state_threshold:
             self.deposit_state = 'Engage'
+            print('engage')
 
         if self.deposit_state == 'Engage' and self.frame_change_difference < self.deposit_state_threshold:
             self.deposit_state = 'Depositing'
+
             print('Deposit has started')
 
         if self.deposit_state == 'Depositing' and self.frame_change_difference > self.deposit_state_threshold and self.stability_state != 'Balling':
             self.deposit_state = 'Retract'
+            print('OG retract')
+
+        if self.deposit_state == 'Depositing' and self.frame_change_difference < 1000 and self.stability_state == 'Balling':
+            self.deposit_state = 'Retract'
+            print('NEW retract')
 
         if self.deposit_state == 'Retract' and self.frame_change_difference < 1000:
             self.deposit_state = 'Deposition Complete'
+            print('complete')
 
 
         #record when things happen
@@ -225,9 +237,11 @@ class Wiggleometer:
         
         if self.deposit_state == 'Engage':
             self.engage_index.append(self.frame_idx)
+            print(f'\n\n\n engage happened at {self.engage_index}\n\n\n')
 
         if self.deposit_state == 'Retract':
             self.retract_index.append(self.frame_idx)
+            print(f'\n\n\n retract happened at {self.retract_index}\n\n\n')
 
     def get_convex_hull(self):
         contours, _ = cv2.findContours(self.binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -290,7 +304,7 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
             root_result = root_scalar(der_interp_function, bracket=[xnew[i-1], xnew[i]])
             if root_result.converged:
                 zero_crossings.append((root_result.root))
-                print(root_result.root)
+
 
  
     for zero_crossing in zero_crossings:
@@ -350,6 +364,15 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
     
     return stubs, lengths, positions
 
+def print_stub_summary(deposit_data):
+    print(f"During testing {(deposit_data['total_stub_occurances'])} stub events were detected")
+    if (deposit_data['total_stub_occurances']) != 0:
+        for i,stub in enumerate(deposit_data['stub_lengths']):
+            print(f"Event recorded at {(deposit_data['stub_indecies'][i])/30:0.3f} seconds lasted for {stub:0.3f} seconds")
+
+
+
+
 
 if __name__ == '__main__':
 
@@ -364,8 +387,10 @@ if __name__ == '__main__':
     global_total_pix = []
     global_total_intensity = []
     global_deposition_data = []
+    global_true_binary_change = []
+
     videos = [1,3,4,5,6,7]
-    files = [2]
+    files = [1,2,3,4,5,6,7]
     roi = [795,444,305,588]
     threshold = 100
 
@@ -376,13 +401,17 @@ if __name__ == '__main__':
         
         test.get_frame()
         height,width,val = test.frame.shape
-        total_red_pix = []
         binary_change=[]
         white_count = []
+        blue_count = []
+        green_count = []
         white_count_buffer = []
+        true_binary_change = []
         gray_change = []
         median = []
+        total_average_intensity = []
         total_intensity = []
+        global_total_average_intensity = []
         total_pix = []
         frame = 0
         peak_indexs = []
@@ -398,10 +427,13 @@ if __name__ == '__main__':
         
 
         while test.state:
-            start = time.time()
+
             test.classification_analysis()
+                   
             test.get_deposit_state()
+
             test.get_stability_state()
+
             display_img = cv2.putText(test.frame,test.stability_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
             display_img = cv2.putText(display_img,test.deposit_state,(10,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
 
@@ -418,21 +450,37 @@ if __name__ == '__main__':
             #     print(f'that took {time.time()-start} seconds')
             
             binary_change.append(np.mean(np.asarray(test.frame_change_buffer,dtype=np.float64)))
+            true_binary_change.append(np.sum(test.binary_image-test.binary_image_ring_buffer[0]))
+
             total_pix.append(np.sum(test.binary_image))
             white_count.append(np.sum(test.white))
-            cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            cv2.imshow('frame',test.white)
-            cv2.waitKey(30)
 
+
+            cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
+            # cv2.imshow('frame',display_img)
+            # cv2.waitKey(60)
+            print(test.stability_state)
+            print(f'frame change difference {test.frame_change_difference}')
+            
+            print(f'intensity {test.total_intensity}')
             test.get_frame()
             
-            total_intensity.append(np.mean(np.asarray(test.total_intensity_buffer,dtype=np.float64)))
+            total_average_intensity.append(np.mean(np.asarray(test.total_intensity_buffer,dtype=np.float64)))
+            total_intensity.append(test.total_intensity)
             
 
         #print(peak_indexs)
 
+
         binary_change = np.asarray(binary_change)
-        # stubs,lengths,positions = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
+        true_binary_change = np.asarray(true_binary_change)
+
+        
+        print(f"the deposit lasted {deposit_data['deposit_length']/30} seconds")
+        #plt.plot(total_intensity,color='blue')
+        #plt.plot(true_binary_change,color='red')
+        #plt.show()
+        #stubs,lengths,positions = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
 
         # #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
@@ -441,49 +489,56 @@ if __name__ == '__main__':
         # for position in positions:
         #     plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
 
-        plt.show()
+        #plt.show()
 
-        plt.plot(white_count)
-        plt.plot(moving_average(white_count,10))
-        plt.title('White Count')
-        plt.show()
+        #plt.plot(white_count)
+        # plt.plot(moving_average(white_count,10),color = 'black')
+        # plt.plot(moving_average(red_count,10),color = 'red')
+        # plt.plot(moving_average(blue_count,10),color = 'blue')
+        # plt.plot(moving_average(green_count,10),color = 'green')
+        # plt.title('White Count')
+        # plt.show()
         
-        deposit_data.update({'stub_indecies':stubs})
-        deposit_data.update({'stub_lengths':lengths})
-        deposit_data.update({'stub_intensities':binary_change[stubs]})
-        deposit_data.update({'deposit_length':((np.max(test.retract_index)-np.min(test.engage_index))/30)})
-        deposit_data.update({'total_stub_occurances':len(stubs)})
+        # deposit_data.update({'stub_indecies':stubs})
+        # deposit_data.update({'stub_lengths':lengths})
+        # deposit_data.update({'stub_intensities':binary_change[stubs]})
+        # #deposit_data.update({'deposit_length':((np.max(test.retract_index)-np.min(test.engage_index))/30)})
+        # deposit_data.update({'total_stub_occurances':len(stubs)})
+        #print_stub_summary(deposit_data)
 
    
-        #test_list = np.asarray(list(set(test.stub_indecies)))
-        live_deposit_peaks = np.asarray(test.stub_indecies)
-        mask2 = ~np.isin(live_deposit_peaks, test.trim_index+test.engage_index+test.retract_index)
-        live_deposit_peaks = live_deposit_peaks[mask2]
-        live_deposit_peaks = live_deposit_peaks[(np.max(test.engage_index) < live_deposit_peaks) | (live_deposit_peaks < np.min(test.retract_index))]        
+        
+        # live_deposit_peaks = np.asarray(test.stub_indecies)
+        # mask2 = ~np.isin(live_deposit_peaks, test.trim_index+test.engage_index+test.retract_index)
+        # live_deposit_peaks = live_deposit_peaks[mask2]
+        # live_deposit_peaks = live_deposit_peaks[(np.max(test.engage_index) < live_deposit_peaks) | (live_deposit_peaks < np.min(test.retract_index))]        
 
-        print(f'during test detected {len(live_deposit_peaks)} stubs')
-        print(f'after test detected {len(stubs)} stubs')
+        
+        # print(f'after test detected {len(stubs)} stubs')
 
-        print(f'the deposition lasted {((np.max(test.retract_index)-np.min(test.engage_index))/30)} seconds')
+        
 
-        print(live_deposit_peaks)
-        print(stubs)
+        # print(stubs)
         
 
         # #print(peaks)
 
         
 
-        
+        # plt.plot(total_average_intensity,color='red')
+        # plt.plot(total_intensity,color='blue')
+        # plt.show()
         global_binary_change.append(binary_change)
         global_total_pix.append(moving_average(total_pix,8))
         global_total_intensity.append(total_intensity)
+        global_total_average_intensity.append(total_average_intensity)
+        global_true_binary_change.append(true_binary_change)
 
 
-    f = open('test_data.txt',"w")
-    for point in global_binary_change:
-        f.write(f'{point}')
-    f.close()
+    # f = open('test_data.txt',"w")
+    # for point in global_binary_change:
+    #     f.write(f'{point}')
+    # f.close()
     # for idx,file in enumerate(files):
     # #     #plt.plot(vid)
     #     plt.plot(global_median[idx],label = f'{file}')
@@ -493,7 +548,7 @@ if __name__ == '__main__':
 
     for idx,file in enumerate(files):
     #     #plt.plot(vid)
-        plt.plot(global_total_pix[idx],label = f'{file}')
+        plt.plot(global_total_intensity[idx],label = f'{file}')
         #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
     plt.legend(loc="upper left")
     plt.show()
@@ -503,21 +558,42 @@ if __name__ == '__main__':
     fig = plt.figure()
     ax = fig.add_subplot(111)
     plt.subplot(111)
-    plt.legend(loc='upper right')
+    #plt.legend(loc='upper right')
+
+    
 
     for idx,threshold in enumerate(files):
     #     #plt.plot(vid)
-        plt.plot(global_binary_change[idx],label = f'{titles[threshold-1]}')
+        print(f'{titles[threshold-1]}')
+        plt.plot(global_total_intensity[idx],label = f'{titles[threshold-1]}')
     plt.legend(loc="upper left")
 
     plt.xlabel('Frame')
-    plt.ylabel('Frame to Frame Pixel Difference')
-    plt.title('Frame to Frame Pixel Difference for Stable and Oscillating Deposits')
+    plt.ylabel('Total Pixel Intensity')
+    plt.title('Frame to Frame Pixel Intensity for Various Deposition States')
 
     Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
     # Update the legend after adding the draggable line
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, loc='upper right')
+    plt.show()
+
+
+    for idx,threshold in enumerate(files):
+    #     #plt.plot(vid)
+        print(f'{titles[threshold-1]}')
+        plt.plot(global_total_intensity[idx],label = f'{titles[threshold-1]}')
+    plt.legend(loc="upper left")
+
+    plt.xlabel('Frame')
+    plt.ylabel('Total Pixel Intensity')
+    plt.title('Frame to Frame Pixel Intensity for Various Deposition States')
+
+    Vline = draggable_lines(ax, "h", 10000,len(max(global_total_average_intensity, key=len)))
+    # Update the legend after adding the draggable line
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, loc='upper right')
+    plt.show()
         
         # plt.plot(pixel_count_array)
         # plt.show()
