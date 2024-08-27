@@ -154,6 +154,7 @@ class Wiggleometer:
         elif np.mean(self.total_intensity_buffer) > self.balling_threshold or self.total_intensity > self.balling_threshold:
             self.stability_state = 'Balling'
             self.stub_frequency_buffer[-1] = 0
+            self.frame_change_buffer[-1] = 0
 
 
         else:
