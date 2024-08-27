@@ -46,7 +46,7 @@ class Wiggleometer:
 
         #thresholding parameters
         self.deposit_state_threshold = 3687626
-        self.balling_threshold = 20248446
+        self.balling_threshold = 11817531
         self.stubbing_threshold = 801825
         
 
@@ -153,6 +153,8 @@ class Wiggleometer:
 
         elif np.mean(self.total_intensity_buffer) > self.balling_threshold or self.total_intensity > self.balling_threshold:
             self.stability_state = 'Balling'
+            self.stub_frequency_buffer[-1] = 0
+
 
         else:
             peaks,__ = find_peaks(np.asarray(self.stub_frequency_buffer),prominence = 500000,plateau_size = 1,width=1)
@@ -164,6 +166,7 @@ class Wiggleometer:
                     self.active_event = True
                     #print('EVENT DETECTED')
                 self.stability_state = 'Stubbing'
+                print(self.stub_frequency_buffer)
 
             if np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64)) > self.stubbing_threshold:
                 self.stability_state = 'Stubbing'
@@ -215,18 +218,17 @@ class Wiggleometer:
 
         if self.deposit_state == 'Engage' and self.frame_change_difference < self.deposit_state_threshold:
             self.deposit_state = 'Depositing'
-
             print('Deposit has started')
 
         if self.deposit_state == 'Depositing' and self.frame_change_difference > self.deposit_state_threshold and self.stability_state != 'Balling':
             self.deposit_state = 'Retract'
             print('OG retract')
 
-        if self.deposit_state == 'Depositing' and self.frame_change_difference < 1000 and self.stability_state == 'Balling':
+        if self.deposit_state == 'Depositing' and self.frame_change_difference < 1000:
             self.deposit_state = 'Retract'
             print('NEW retract')
 
-        if self.deposit_state == 'Retract' and self.frame_change_difference < 1000:
+        elif self.deposit_state == 'Retract' and self.frame_change_difference < 1000:
             self.deposit_state = 'Deposition Complete'
             print('complete')
 
@@ -237,7 +239,7 @@ class Wiggleometer:
         
         if self.deposit_state == 'Engage':
             self.engage_index.append(self.frame_idx)
-            print(f'\n\n\n engage happened at {self.engage_index}\n\n\n')
+            #print(f'\n\n\n engage happened at {self.engage_index}\n\n\n')
 
         if self.deposit_state == 'Retract':
             self.retract_index.append(self.frame_idx)
@@ -390,7 +392,7 @@ if __name__ == '__main__':
     global_true_binary_change = []
 
     videos = [1,3,4,5,6,7]
-    files = [1,2,3,4,5,6,7]
+    files = [2]
     roi = [795,444,305,588]
     threshold = 100
 
@@ -459,10 +461,13 @@ if __name__ == '__main__':
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
             # cv2.imshow('frame',display_img)
             # cv2.waitKey(60)
-            print(test.stability_state)
+            # print(test.stability_state)
             print(f'frame change difference {test.frame_change_difference}')
+            print(test.stability_state)
+            # print(test.stub_frequency_buffer)
+            # print('its balling right the frick now')
             
-            print(f'intensity {test.total_intensity}')
+            # print(f'intensity {test.total_intensity}')
             test.get_frame()
             
             total_average_intensity.append(np.mean(np.asarray(test.total_intensity_buffer,dtype=np.float64)))
@@ -480,7 +485,7 @@ if __name__ == '__main__':
         #plt.plot(total_intensity,color='blue')
         #plt.plot(true_binary_change,color='red')
         #plt.show()
-        #stubs,lengths,positions = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
+        stubs,lengths,positions = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
 
         # #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
@@ -499,12 +504,12 @@ if __name__ == '__main__':
         # plt.title('White Count')
         # plt.show()
         
-        # deposit_data.update({'stub_indecies':stubs})
-        # deposit_data.update({'stub_lengths':lengths})
-        # deposit_data.update({'stub_intensities':binary_change[stubs]})
-        # #deposit_data.update({'deposit_length':((np.max(test.retract_index)-np.min(test.engage_index))/30)})
-        # deposit_data.update({'total_stub_occurances':len(stubs)})
-        #print_stub_summary(deposit_data)
+        deposit_data.update({'stub_indecies':stubs})
+        deposit_data.update({'stub_lengths':lengths})
+        deposit_data.update({'stub_intensities':binary_change[stubs]})
+        deposit_data.update({'deposit_length':((np.max(test.retract_index)-np.min(test.engage_index))/30)})
+        deposit_data.update({'total_stub_occurances':len(stubs)})
+        print_stub_summary(deposit_data)
 
    
         
@@ -562,21 +567,21 @@ if __name__ == '__main__':
 
     
 
-    for idx,threshold in enumerate(files):
-    #     #plt.plot(vid)
-        print(f'{titles[threshold-1]}')
-        plt.plot(global_total_intensity[idx],label = f'{titles[threshold-1]}')
-    plt.legend(loc="upper left")
+    # for idx,threshold in enumerate(files):
+    # #     #plt.plot(vid)
+    #     print(f'{titles[threshold-1]}')
+    #     plt.plot(global_total_intensity[idx],label = f'{titles[threshold-1]}')
+    # plt.legend(loc="upper left")
 
-    plt.xlabel('Frame')
-    plt.ylabel('Total Pixel Intensity')
-    plt.title('Frame to Frame Pixel Intensity for Various Deposition States')
+    # plt.xlabel('Frame')
+    # plt.ylabel('Total Pixel Intensity')
+    # plt.title('Frame to Frame Pixel Intensity for Various Deposition States')
 
-    Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
-    # Update the legend after adding the draggable line
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels, loc='upper right')
-    plt.show()
+    # Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
+    # # Update the legend after adding the draggable line
+    # handles, labels = ax.get_legend_handles_labels()
+    # ax.legend(handles, labels, loc='upper right')
+    # plt.show()
 
 
     for idx,threshold in enumerate(files):
