@@ -26,6 +26,7 @@ class Wiggleometer:
         self.binary_image_ring_buffer = collections.deque(maxlen = 2)
         self.frame_change_buffer = collections.deque(maxlen = 3)
         self.binary_pixel_count_buffer = collections.deque(maxlen = 3)
+        self.balling_data_buffer = collections.deque(maxlen=5)
         self.frame_change_buffer.append(1)
         self.stability_state = "Not Depositing"
         self.height,self.width,val = self.frame.shape
@@ -43,8 +44,10 @@ class Wiggleometer:
         self.trim_index = []
         self.engage_index = []
         self.retract_index = []
-        self.active_event = False
+        self.active_stubbing = False
+        self.active_balling = False
         self.local_stub_indecies = []
+        self.balling_data = 0
         
 
 
@@ -52,6 +55,7 @@ class Wiggleometer:
         self.deposit_state_threshold = 3687626
         self.balling_threshold = 11817531
         self.stubbing_threshold = 801825
+        self.blue_threshold = 3220484
         
 
 
@@ -88,15 +92,43 @@ class Wiggleometer:
         self.gray_image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY) 
         self.gray_image = cv2.GaussianBlur(src=self.gray_image, ksize=(5, 5), sigmaX=0.5)
 
-
-        self.binary_image = np.zeros_like(self.gray_image)
-        self.binary_image[np.where(self.gray_image>self.threshold)] = 255
+        _, self.binary_image = cv2.threshold(self.gray_image, self.threshold, 255, cv2.THRESH_BINARY)
 
         binary_pixel_count = np.sum(self.binary_image)
         self.binary_pixel_count_buffer.append(binary_pixel_count)
 
-        self.white = np.zeros_like(self.gray_image)
-        self.white[np.where(self.gray_image>250)] = 255
+        # self.white = np.zeros_like(self.gray_image)
+        # self.white[np.where(self.gray_image>250)] = 255
+
+    
+    def threshold_image_by_rgb(self,frame, lower_rgb, upper_rgb):
+        # Apply the threshold using the given RGB ranges
+        lower_bound = np.array(lower_rgb, dtype="uint8")
+        upper_bound = np.array(upper_rgb, dtype="uint8")
+        mask = cv2.inRange(frame, lower_bound, upper_bound)
+        result = cv2.bitwise_and(frame, frame, mask=mask)
+        return result, mask
+    
+    
+    def save_balling_data(self):
+        r_min = 255
+        r_max = 255
+        g_min = 255
+        g_max = 255
+        b_min = 100
+        b_max = 254
+
+        # Set the lower and upper RGB boundaries based on trackbar positions
+        lower_rgb = [b_min, g_min, r_min]
+        upper_rgb = [b_max, g_max, r_max]
+
+        # Apply the threshold to the current frame
+        thresholded_frame, mask = self.threshold_image_by_rgb(self.frame, lower_rgb, upper_rgb)
+        self.balling_data = np.sum(thresholded_frame)
+
+        self.balling_data_buffer.append(self.balling_data)
+        self.balling_data_plot = np.mean(np.asarray(self.balling_data_buffer))
+        
 
 
     def resize_frame(self):
@@ -148,18 +180,23 @@ class Wiggleometer:
         self.stub_frequency_buffer.append(self.frame_change_difference)
 
     def get_stability_state(self):
-        self.active_event = False
+        self.active_stubbing = False
         init_offset = 8
         stub_timing_factor = 1.3
+        self.active_balling = False
         #print(self.stub_count)
         
 
         if self.deposit_state != 'Depositing':
             self.stability_state = 'Not Depositing'
 
+        
         elif np.mean(self.total_intensity_buffer) > self.balling_threshold or self.total_intensity > self.balling_threshold:
             self.stability_state = 'Balling'
             self.stub_frequency_buffer[-1] = 0
+            if np.mean(np.asarray(self.balling_data_buffer)) > self.blue_threshold:
+                self.active_balling = True
+            
             #self.frame_change_buffer[-1] = 0
 
 
@@ -170,7 +207,7 @@ class Wiggleometer:
                 if (self.frame_idx-(10-peaks[0])) not in (self.stub_indecies):
                     self.stub_indecies.append(self.frame_idx-(10-peaks[0]))
                     self.local_stub_indecies.append(self.frame_idx-(10-peaks[0]))
-                    self.active_event = True
+                    self.active_stubbing = True
                     #print('EVENT DETECTED')
                 self.stability_state = 'Stubbing'
 
@@ -335,6 +372,7 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
 
     lengths = []
     positions = []
+
     for peak in stubs:
 
         left = (np.where(((np.diff(np.sign(der_valleys-peak)) != 0)*1)==1)[0])
@@ -371,6 +409,8 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
                     
             lengths.append((x2_pos-x1_pos)/30)
             positions.append([x1_pos,x2_pos,interp_function(x1_pos),interp_function(x2_pos)]) 
+
+
     
     return stubs, lengths, positions
 
@@ -418,9 +458,9 @@ if __name__ == '__main__':
     global_total_intensity = []
     global_deposition_data = []
     global_true_binary_change = []
+    global_balling_data = []
 
-    videos = [1,3,4,5,6,7]
-    files = [1,2,3,4,5,6,7]
+    files = [1,2,3]
     roi = [795,444,305,588]
     threshold = 100
 
@@ -432,16 +472,15 @@ if __name__ == '__main__':
         test.get_frame()
         height,width,val = test.frame.shape
         binary_change=[]
-        white_count = []
         blue_count = []
         green_count = []
-        white_count_buffer = []
         true_binary_change = []
         gray_change = []
         median = []
         total_average_intensity = []
         total_intensity = []
         global_total_average_intensity = []
+        balling_data = []
         stability_states = []
         total_pix = []
         frame = 0
@@ -460,18 +499,25 @@ if __name__ == '__main__':
         
 
         while test.state:
+            
+            start= time.time()
 
             test.classification_analysis()
                    
             test.get_deposit_state()
 
             test.get_stability_state()
+            test.save_balling_data()
+            #print(f'it took {time.time()-start} seconds')
 
             display_img = cv2.putText(test.frame,test.stability_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
             display_img = cv2.putText(display_img,test.deposit_state,(10,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
 
-            if test.active_event:
+            if test.active_stubbing:
                 display_img = cv2.putText(display_img,'OSCILLATION DETECTED',(1200,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
+
+            if test.active_balling:
+                display_img = cv2.putText(display_img,'CURRENTLY BALLING',(1200,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
 
 
            
@@ -486,12 +532,12 @@ if __name__ == '__main__':
             true_binary_change.append(np.sum(test.binary_image-test.binary_image_ring_buffer[0]))
 
             total_pix.append(np.sum(test.binary_image))
-            white_count.append(np.sum(test.white))
+            #white_count.append(np.sum(test.white))
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            # cv2.imshow('frame',display_img)
-            # cv2.waitKey(60)
+            cv2.imshow('frame',display_img)
+            cv2.waitKey(30)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
             # print('its balling right the frick now')
@@ -501,12 +547,16 @@ if __name__ == '__main__':
             
             total_average_intensity.append(np.mean(np.asarray(test.total_intensity_buffer,dtype=np.float64)))
             total_intensity.append(test.total_intensity)
+            balling_data.append(test.balling_data_plot)
             if test.deposit_state == 'Depositing':
                 stability_states.append(test.stability_state)
+
             
 
         #print(peak_indexs)
-
+        #plt.plot(moving_average(test.balling_data,5))
+        #global_balling_data.append(test.balling_data)
+        #plt.show()
 
         binary_change = np.asarray(binary_change)
         true_binary_change = np.asarray(true_binary_change)
@@ -517,6 +567,8 @@ if __name__ == '__main__':
         #plt.plot(true_binary_change,color='red')
         #plt.show()
         stubs,lengths,positions = find_stub_indecies(binary_change,test.engage_index,test.retract_index)
+
+
 
 
 
@@ -554,7 +606,12 @@ if __name__ == '__main__':
         live_deposit_peaks = np.asarray(test.stub_indecies)
         mask2 = ~np.isin(live_deposit_peaks, test.trim_index+test.engage_index+test.retract_index)
         live_deposit_peaks = live_deposit_peaks[mask2]
-        live_deposit_peaks = live_deposit_peaks[(np.max(test.engage_index) < live_deposit_peaks) | (live_deposit_peaks < np.min(test.retract_index))]            
+        live_deposit_peaks = live_deposit_peaks[(np.max(test.engage_index) < live_deposit_peaks) | (live_deposit_peaks < np.min(test.retract_index))]      
+
+        # for peak in live_deposit_peaks:
+        #     plt.plot(peak,binary_change[peak],marker='*',color='red')
+        # plt.plot(binary_change,color='blue')     
+        # plt.show() 
 
         # print(stubs)
         
@@ -571,6 +628,7 @@ if __name__ == '__main__':
         global_total_intensity.append(total_intensity)
         global_total_average_intensity.append(total_average_intensity)
         global_true_binary_change.append(true_binary_change)
+        global_balling_data.append(balling_data)
 
 
     # f = open('test_data.txt',"w")
@@ -586,7 +644,7 @@ if __name__ == '__main__':
 
     for idx,file in enumerate(files):
     #     #plt.plot(vid)
-        plt.plot(global_total_intensity[idx],label = f'{file}')
+        plt.plot(global_binary_change[idx],label = f'{file}')
         #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
     plt.legend(loc="upper left")
     #plt.show()
@@ -600,37 +658,37 @@ if __name__ == '__main__':
 
     
 
+    for idx,threshold in enumerate(files):
+    #     #plt.plot(vid)
+        print(f'{titles[threshold-1]}')
+        plt.plot(global_balling_data[idx],label = f'{titles[threshold-1]}')
+    plt.legend(loc="upper left")
+
+    plt.xlabel('Frame')
+    plt.ylabel('Total Blue Pixel Count')
+    plt.title('Frame to Frame Blue Pixel Count for Various Deposition States')
+
+    Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
+    # Update the legend after adding the draggable line
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, loc='upper right')
+    plt.show()
+
+    # plt.show()
     # for idx,threshold in enumerate(files):
     # #     #plt.plot(vid)
-    #     print(f'{titles[threshold-1]}')
-    #     plt.plot(global_total_intensity[idx],label = f'{titles[threshold-1]}')
+    #     plt.plot(global_balling_data[idx],label = f'{titles[threshold-1]}')
     # plt.legend(loc="upper left")
 
     # plt.xlabel('Frame')
-    # plt.ylabel('Total Pixel Intensity')
-    # plt.title('Frame to Frame Pixel Intensity for Various Deposition States')
+    # plt.ylabel('Total Blue Pixel Count')
+    # plt.title('Frame to Frame Blue Pixel Count for Various Deposition States')
 
-    # Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
+    # Vline = draggable_lines(ax, "h", 10000,len(max(global_total_average_intensity, key=len)))
     # # Update the legend after adding the draggable line
     # handles, labels = ax.get_legend_handles_labels()
     # ax.legend(handles, labels, loc='upper right')
     # plt.show()
-
-
-    for idx,threshold in enumerate(files):
-    #     #plt.plot(vid)
-        plt.plot(global_total_intensity[idx],label = f'{titles[threshold-1]}')
-    plt.legend(loc="upper left")
-
-    plt.xlabel('Frame')
-    plt.ylabel('Total Pixel Intensity')
-    plt.title('Frame to Frame Pixel Intensity for Various Deposition States')
-
-    Vline = draggable_lines(ax, "h", 10000,len(max(global_total_average_intensity, key=len)))
-    # Update the legend after adding the draggable line
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels, loc='upper right')
-    #plt.show()
         
         # plt.plot(pixel_count_array)
         # plt.show()

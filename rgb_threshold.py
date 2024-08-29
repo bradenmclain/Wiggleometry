@@ -62,9 +62,9 @@ def main():
         b_max = cv2.getTrackbarPos('B_max', 'Thresholded Video')
 
         r_min = 255
-        r_max = cv2.getTrackbarPos('R_max', 'Thresholded Video')
+        r_max = 255
         g_min = 255
-        g_max = cv2.getTrackbarPos('G_max', 'Thresholded Video')
+        g_max = 255
         b_min = 100
         b_max = 254
 
