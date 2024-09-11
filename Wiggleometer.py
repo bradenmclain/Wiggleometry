@@ -428,9 +428,14 @@ def print_general_deposit_information(deposit_data):
     number_stubs = deposit_data['stability_states'].count('Stubbing')
     number_stable = deposit_data['stability_states'].count('Stable')
 
-    print(f"State Stable: {number_stable*100/len(deposit_data['stability_states']):.2f}% of the video")
-    print(f"State Balling: {number_balls*100/len(deposit_data['stability_states']):.2f}% of the video")
-    print(f"State Stubbing: {number_stubs*100/len(deposit_data['stability_states']):.2f}% of the video")
+    stable_percent = number_stable*100/len(deposit_data['stability_states'])
+    balling_percent = number_balls*100/len(deposit_data['stability_states'])
+    stubbing_percent = number_stubs*100/len(deposit_data['stability_states'])
+
+    print(f"State Stable: {stable_percent:.2f}% of the video")
+    print(f"State Balling: {balling_percent:.2f}% of the video")
+    print(f"State Stubbing: {stubbing_percent:.2f}% of the video")
+    print(f"Total Unstable: {stubbing_percent+balling_percent:.2f}% of video")
 
 
     print(f"During testing {(deposit_data['total_stub_occurances'])} stub events were detected\n")
@@ -550,7 +555,7 @@ if __name__ == '__main__':
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
             cv2.imshow('frame',test.frame)
-            cv2.waitKey(30)
+            cv2.waitKey(10)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
             # print('its balling right the frick now')
