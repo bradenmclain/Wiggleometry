@@ -44,6 +44,7 @@ class Wiggleometer:
         self.trim_index = []
         self.engage_index = []
         self.retract_index = []
+        self.new_total_intensity = []
         self.active_stubbing = False
         self.active_balling = False
         self.local_stub_indecies = []
@@ -93,6 +94,11 @@ class Wiggleometer:
         self.gray_image = cv2.GaussianBlur(src=self.gray_image, ksize=(5, 5), sigmaX=0.5)
 
         _, self.binary_image = cv2.threshold(self.gray_image, self.threshold, 255, cv2.THRESH_BINARY)
+        mask = self.gray_image >= self.threshold
+
+        # Apply the mask: values above the threshold remain unchanged, others are set to 0
+        self.threhold_image_without_background = np.where(mask, self.gray_image, 0)
+
 
         binary_pixel_count = np.sum(self.binary_image)
         self.binary_pixel_count_buffer.append(binary_pixel_count)
@@ -464,6 +470,7 @@ if __name__ == '__main__':
     global_deposition_data = []
     global_true_binary_change = []
     global_balling_data = []
+    global_new_total_intensity = []
 
     videos = {1500: [0,6,7],
               1450: [8,9,10],
@@ -477,13 +484,16 @@ if __name__ == '__main__':
     }
 
    #files = [file_1,file_2]
-    files = [0,1,2]
+    files = [1,2,3]
     roi = [795,444,305,588]
     threshold = 100
 
-    for i,file  in enumerate(videos[1500]):
+    #for i,file  in enumerate(videos[1350]):
+    for i,file in enumerate(files):
+
         
-        file = f"./data/Stability_Experiment/trial_{file}.mp4"
+        #file = f"./data/Stability_Experiment/trial_{file}.mp4"
+        file = f"./data/Wiggleometer_Deposits/wiggleometer_deposit_{file}.mp4"
         print(f'the file is {file}')
         test = Wiggleometer(file,threshold)
         
@@ -497,6 +507,7 @@ if __name__ == '__main__':
         median = []
         total_average_intensity = []
         total_intensity = []
+        new_total_intensity = []
         global_total_average_intensity = []
         balling_data = []
         stability_states = []
@@ -554,7 +565,7 @@ if __name__ == '__main__':
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            cv2.imshow('frame',test.frame)
+            cv2.imshow('frame',test.threhold_image_without_background)
             cv2.waitKey(10)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
@@ -566,6 +577,7 @@ if __name__ == '__main__':
             total_average_intensity.append(np.mean(np.asarray(test.total_intensity_buffer,dtype=np.float64)))
             total_intensity.append(test.total_intensity)
             balling_data.append(test.balling_data_plot)
+            new_total_intensity.append(test.new_total_intensity)
             if test.deposit_state == 'Depositing':
                 stability_states.append(test.stability_state)
 
@@ -651,9 +663,10 @@ if __name__ == '__main__':
         global_total_average_intensity.append(total_average_intensity)
         global_true_binary_change.append(true_binary_change)
         global_balling_data.append(balling_data)
+        global_new_total_intensity.append(new_total_intensity)
 
-    for binary_change in global_binary_change:
-        plt.plot(binary_change)
+    for new_intensity in global_new_total_intensity:
+        plt.plot(new_intensity)
     plt.show()
     # f = open('test_data.txt',"w")
     # for point in global_binary_change:
