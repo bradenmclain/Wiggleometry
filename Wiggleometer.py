@@ -52,7 +52,7 @@ class Wiggleometer:
 
 
         #thresholding parameters
-        self.deposit_state_threshold = 3687626
+        self.deposit_state_threshold = 3587626
         self.balling_threshold = 11817531
         self.stubbing_threshold = 801825
         self.blue_threshold = 3220484
@@ -115,7 +115,7 @@ class Wiggleometer:
         r_max = 255
         g_min = 255
         g_max = 255
-        b_min = 100
+        b_min = self.threshold
         b_max = 254
 
         # Set the lower and upper RGB boundaries based on trackbar positions
@@ -459,13 +459,16 @@ if __name__ == '__main__':
     global_deposition_data = []
     global_true_binary_change = []
     global_balling_data = []
-
-    files = [1,2,3]
+    file_1 = f"./data/Second/wiggleometer_deposit_1.mp4"
+        
+    file_2 = f"./data/Stability_Experiment/trial_5.mp4"
+    files = [file_1,file_2]
     roi = [795,444,305,588]
     threshold = 100
 
     for i,file  in enumerate(files):
-        file = f"./data/Second/wiggleometer_deposit_{file}.mp4"
+        
+        
         print(f'the file is {file}')
         test = Wiggleometer(file,threshold)
         
@@ -536,7 +539,7 @@ if __name__ == '__main__':
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            cv2.imshow('frame',display_img)
+            cv2.imshow('frame',test.frame)
             cv2.waitKey(30)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
@@ -560,6 +563,10 @@ if __name__ == '__main__':
 
         binary_change = np.asarray(binary_change)
         true_binary_change = np.asarray(true_binary_change)
+        # plt.title('binary change')
+        # plt.plot(binary_change)
+        # plt.plot(true_binary_change)
+        # plt.show()
 
         
         
@@ -630,7 +637,9 @@ if __name__ == '__main__':
         global_true_binary_change.append(true_binary_change)
         global_balling_data.append(balling_data)
 
-
+    for binary_change in global_binary_change:
+        plt.plot(binary_change)
+    plt.show()
     # f = open('test_data.txt',"w")
     # for point in global_binary_change:
     #     f.write(f'{point}')
@@ -642,37 +651,37 @@ if __name__ == '__main__':
     # plt.legend(loc="upper left")
     # plt.show()
 
-    for idx,file in enumerate(files):
-    #     #plt.plot(vid)
-        plt.plot(global_binary_change[idx],label = f'{file}')
-        #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
-    plt.legend(loc="upper left")
-    #plt.show()
-    titles = ['Dripping Deposition','Stable Deposition','Oscillating Deposition']
-    titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition','Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
+    # for idx,file in enumerate(files):
+    # #     #plt.plot(vid)
+    #     plt.plot(global_binary_change[idx],label = f'{file}')
+    #     #plt.plot(global_white_count_buffer[idx],label = f'deposit video {idx}')
+    # plt.legend(loc="upper left")
+    # #plt.show()
+    # titles = ['Dripping Deposition','Stable Deposition','Oscillating Deposition']
+    # titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition','Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    plt.subplot(111)
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # plt.subplot(111)
     #plt.legend(loc='upper right')
 
     
 
-    for idx,threshold in enumerate(files):
-    #     #plt.plot(vid)
-        print(f'{titles[threshold-1]}')
-        plt.plot(global_balling_data[idx],label = f'{titles[threshold-1]}')
-    plt.legend(loc="upper left")
+    # for idx,threshold in enumerate(files):
+    # #     #plt.plot(vid)
+    #     print(f'{titles[threshold-1]}')
+    #     plt.plot(global_balling_data[idx],label = f'{titles[threshold-1]}')
+    # plt.legend(loc="upper left")
 
-    plt.xlabel('Frame')
-    plt.ylabel('Total Blue Pixel Count')
-    plt.title('Frame to Frame Blue Pixel Count for Various Deposition States')
+    # plt.xlabel('Frame')
+    # plt.ylabel('Total Blue Pixel Count')
+    # plt.title('Frame to Frame Blue Pixel Count for Various Deposition States')
 
-    Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
-    # Update the legend after adding the draggable line
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels, loc='upper right')
-    plt.show()
+    # Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
+    # # Update the legend after adding the draggable line
+    # handles, labels = ax.get_legend_handles_labels()
+    # ax.legend(handles, labels, loc='upper right')
+    # plt.show()
 
     # plt.show()
     # for idx,threshold in enumerate(files):
