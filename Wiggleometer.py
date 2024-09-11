@@ -459,16 +459,26 @@ if __name__ == '__main__':
     global_deposition_data = []
     global_true_binary_change = []
     global_balling_data = []
-    file_1 = f"./data/Second/wiggleometer_deposit_1.mp4"
-        
-    file_2 = f"./data/Stability_Experiment/trial_5.mp4"
-    files = [file_1,file_2]
+
+    videos = {1500: [0,6,7],
+              1450: [8,9,10],
+              1400: [1,11,12],
+              1350: [13,14,15],
+              1300: [16,17,19],
+              1250: [19,20,21],
+              1200: [22,23,24],
+              1150: [25,26,27],
+              1100: [28,29,5]
+    }
+
+   #files = [file_1,file_2]
+    files = [0,1,2]
     roi = [795,444,305,588]
     threshold = 100
 
-    for i,file  in enumerate(files):
+    for i,file  in enumerate(videos[1500]):
         
-        
+        file = f"./data/Stability_Experiment/trial_{file}.mp4"
         print(f'the file is {file}')
         test = Wiggleometer(file,threshold)
         
