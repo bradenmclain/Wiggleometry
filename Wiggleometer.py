@@ -493,7 +493,7 @@ if __name__ == '__main__':
     roi = [795,444,305,588]
     threshold = 100
 
-    for i,file  in enumerate(videos[1000]):
+    for i,file  in enumerate(videos[1100]):
     #for i,file in enumerate(files):
 
         
@@ -531,7 +531,8 @@ if __name__ == '__main__':
 
         stub_idx = 0
         
-
+        cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("frame", (round(width/2), round(height/2)) )
         while test.state:
             
             start= time.time()
@@ -570,8 +571,8 @@ if __name__ == '__main__':
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            # cv2.imshow('frame',display_img)
-            # cv2.waitKey(10)
+            cv2.imshow('frame',display_img)
+            cv2.waitKey(10)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
             # print('its balling right the frick now')
@@ -639,6 +640,7 @@ if __name__ == '__main__':
         deposit_data.update({'total_stub_occurances':len(stubs)})
         #print_stub_summary(deposit_data)
         print_general_deposit_information(deposit_data)
+        print_stub_summary(deposit_data)
 
   
         
