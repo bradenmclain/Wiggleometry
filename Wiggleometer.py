@@ -669,6 +669,12 @@ if __name__ == '__main__':
     for new_intensity in global_new_total_intensity:
         plt.plot(new_intensity)
     plt.show()
+
+    for new_intensity in global_total_intensity:
+        plt.plot(new_intensity)
+    plt.show()
+
+
     # f = open('test_data.txt',"w")
     # for point in global_binary_change:
     #     f.write(f'{point}')
