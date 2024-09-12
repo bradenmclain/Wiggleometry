@@ -23,6 +23,7 @@ class Wiggleometer:
         self.length = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
         self.state, self.frame = self.video.read()
         self.total_intensity_buffer = collections.deque(maxlen = 3)
+        self.new_total_intensity_buffer = collections.deque(maxlen = 3)
         self.binary_image_ring_buffer = collections.deque(maxlen = 2)
         self.frame_change_buffer = collections.deque(maxlen = 3)
         self.binary_pixel_count_buffer = collections.deque(maxlen = 3)
@@ -54,10 +55,10 @@ class Wiggleometer:
 
         #thresholding parameters
         self.deposit_state_threshold = 3587626
-        self.balling_threshold = 11817531
+        self.balling_threshold = 11672639
         self.stubbing_threshold = 801825
         self.blue_threshold = 3220484
-        
+        11672639
 
 
     def get_frame(self):
@@ -181,6 +182,7 @@ class Wiggleometer:
         self.binary_image_ring_buffer.append(self.binary_image)
         self.total_intensity = np.sum(self.gray_image)
         self.total_intensity_buffer.append(self.total_intensity)
+        self.new_total_intensity_buffer.append(self.new_total_intensity)
         self.frame_change = np.sum(self.binary_image - self.binary_image_ring_buffer[0],dtype=np.float64)
         self.frame_change_buffer.append(self.frame_change)
         self.frame_change_difference = np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64))
@@ -198,7 +200,7 @@ class Wiggleometer:
             self.stability_state = 'Not Depositing'
 
         
-        elif np.mean(self.total_intensity_buffer) > self.balling_threshold or self.total_intensity > self.balling_threshold:
+        elif np.mean(self.new_total_intensity_buffer) > self.balling_threshold or self.new_total_intensity > self.balling_threshold:
             self.stability_state = 'Balling'
             self.stub_frequency_buffer[-1] = 0
             if np.mean(np.asarray(self.balling_data_buffer)) > self.blue_threshold:
@@ -485,16 +487,16 @@ if __name__ == '__main__':
     }
 
    #files = [file_1,file_2]
-    files = [1,2,3]
+    files = [1,2,3,4,5,6,7]
     roi = [795,444,305,588]
     threshold = 100
 
-    #for i,file  in enumerate(videos[1350]):
-    for i,file in enumerate(files):
+    for i,file  in enumerate(videos[1350]):
+    #for i,file in enumerate(files):
 
         
-        #file = f"./data/Stability_Experiment/trial_{file}.mp4"
-        file = f"./data/Wiggleometer_Deposits/wiggleometer_deposit_{file}.mp4"
+        file = f"./data/Stability_Experiment/trial_{file}.mp4"
+        #file = f"./data/Wiggleometer_Deposits/wiggleometer_deposit_{file}.mp4"
         print(f'the file is {file}')
         test = Wiggleometer(file,threshold)
         
@@ -578,7 +580,7 @@ if __name__ == '__main__':
             total_average_intensity.append(np.mean(np.asarray(test.total_intensity_buffer,dtype=np.float64)))
             total_intensity.append(test.total_intensity)
             balling_data.append(test.balling_data_plot)
-            new_total_intensity.append(test.new_total_intensity)
+            new_total_intensity.append(np.mean(test.new_total_intensity_buffer))
             if test.deposit_state == 'Depositing':
                 stability_states.append(test.stability_state)
 
@@ -666,13 +668,13 @@ if __name__ == '__main__':
         global_balling_data.append(balling_data)
         global_new_total_intensity.append(new_total_intensity)
 
-    for new_intensity in global_new_total_intensity:
-        plt.plot(new_intensity)
-    plt.show()
+    # for new_intensity in global_new_total_intensity:
+    #     plt.plot(new_intensity)
+    # plt.show()
 
-    for new_intensity in global_total_intensity:
-        plt.plot(new_intensity)
-    plt.show()
+    # for new_intensity in global_total_intensity:
+    #     plt.plot(new_intensity)
+    # plt.show()
 
 
     # f = open('test_data.txt',"w")
@@ -693,30 +695,30 @@ if __name__ == '__main__':
     # plt.legend(loc="upper left")
     # #plt.show()
     # titles = ['Dripping Deposition','Stable Deposition','Oscillating Deposition']
-    # titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition','Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
+    titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition','Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
 
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111)
-    # plt.subplot(111)
-    #plt.legend(loc='upper right')
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.subplot(111)
+    plt.legend(loc='upper right')
 
     
 
-    # for idx,threshold in enumerate(files):
-    # #     #plt.plot(vid)
-    #     print(f'{titles[threshold-1]}')
-    #     plt.plot(global_balling_data[idx],label = f'{titles[threshold-1]}')
-    # plt.legend(loc="upper left")
+    for idx,threshold in enumerate(files):
+    #     #plt.plot(vid)
+        print(f'{titles[threshold-1]}')
+        plt.plot(global_new_total_intensity[idx],label = f'{titles[threshold-1]}')
+    plt.legend(loc="upper left")
 
-    # plt.xlabel('Frame')
-    # plt.ylabel('Total Blue Pixel Count')
-    # plt.title('Frame to Frame Blue Pixel Count for Various Deposition States')
+    plt.xlabel('Frame')
+    plt.ylabel('Total Pixel Intensity')
+    plt.title('Total Pixel Intensity for Various Deposition States')
 
-    # Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
-    # # Update the legend after adding the draggable line
-    # handles, labels = ax.get_legend_handles_labels()
-    # ax.legend(handles, labels, loc='upper right')
-    # plt.show()
+    Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
+    # Update the legend after adding the draggable line
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, loc='upper right')
+    plt.show()
 
     # plt.show()
     # for idx,threshold in enumerate(files):
