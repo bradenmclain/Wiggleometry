@@ -289,6 +289,7 @@ class Wiggleometer:
         #record when things happen
         if self.deposit_state == 'Trim':
             self.trim_index.append(self.frame_idx)
+            
         
         if self.deposit_state == 'Engage':
             self.engage_index.append(self.frame_idx)
@@ -463,7 +464,7 @@ if __name__ == '__main__':
     fourcc = cv2.VideoWriter_fourcc(*'H264')
     #fourcc = -1
 
-    engage_retract_pad = 0
+    engage_retract_pad = 10
     
     i = 0
     global_binary_change = []
@@ -568,8 +569,8 @@ if __name__ == '__main__':
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            # cv2.imshow('frame',test.threhold_image_without_background)
-            # cv2.waitKey(10)
+            cv2.imshow('frame',display_img)
+            cv2.waitKey(10)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
             # print('its balling right the frick now')
