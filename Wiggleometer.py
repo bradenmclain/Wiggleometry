@@ -98,6 +98,7 @@ class Wiggleometer:
 
         # Apply the mask: values above the threshold remain unchanged, others are set to 0
         self.threhold_image_without_background = np.where(mask, self.gray_image, 0)
+        self.new_total_intensity = np.sum(self.threhold_image_without_background)
 
 
         binary_pixel_count = np.sum(self.binary_image)
@@ -565,8 +566,8 @@ if __name__ == '__main__':
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            cv2.imshow('frame',test.threhold_image_without_background)
-            cv2.waitKey(10)
+            # cv2.imshow('frame',test.threhold_image_without_background)
+            # cv2.waitKey(10)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
             # print('its balling right the frick now')
