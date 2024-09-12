@@ -484,7 +484,8 @@ if __name__ == '__main__':
               1250: [19,20,21],
               1200: [22,23,24],
               1150: [25,26,27],
-              1100: [28,29,5]
+              1100: [28,29,5],
+              1000: [14,26]
     }
 
    #files = [file_1,file_2]
@@ -492,7 +493,7 @@ if __name__ == '__main__':
     roi = [795,444,305,588]
     threshold = 100
 
-    for i,file  in enumerate(videos[1350]):
+    for i,file  in enumerate(videos[1000]):
     #for i,file in enumerate(files):
 
         
@@ -569,8 +570,8 @@ if __name__ == '__main__':
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            cv2.imshow('frame',display_img)
-            cv2.waitKey(10)
+            # cv2.imshow('frame',display_img)
+            # cv2.waitKey(10)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
             # print('its balling right the frick now')
@@ -613,11 +614,11 @@ if __name__ == '__main__':
         # #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
         
-        # plt.plot(binary_change,color='blue')
-        # for position in positions:
-        #     plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
+        plt.plot(binary_change,color='blue')
+        for position in positions:
+            plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
 
-        #plt.show()
+        plt.show()
 
         #plt.plot(white_count)
         # plt.plot(moving_average(white_count,10),color = 'black')
@@ -669,9 +670,9 @@ if __name__ == '__main__':
         global_balling_data.append(balling_data)
         global_new_total_intensity.append(new_total_intensity)
 
-    # for new_intensity in global_new_total_intensity:
-    #     plt.plot(new_intensity)
-    # plt.show()
+    for new_intensity in global_binary_change:
+        plt.plot(new_intensity)
+    plt.show()
 
     # for new_intensity in global_total_intensity:
     #     plt.plot(new_intensity)
@@ -696,30 +697,30 @@ if __name__ == '__main__':
     # plt.legend(loc="upper left")
     # #plt.show()
     # titles = ['Dripping Deposition','Stable Deposition','Oscillating Deposition']
-    titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition','Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
+    # titles = ['Stable-Oscillating Deposition 1', 'Dripping Deposition','Stable Deposition 1', 'Stable-Oscillating Deposition 2', 'Oscillating Deposition', 'Stable-Oscillating Deposition 3', 'Stable Deposition 2']
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    plt.subplot(111)
-    plt.legend(loc='upper right')
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # plt.subplot(111)
+    # plt.legend(loc='upper right')
 
     
 
-    for idx,threshold in enumerate(files):
-    #     #plt.plot(vid)
-        print(f'{titles[threshold-1]}')
-        plt.plot(global_new_total_intensity[idx],label = f'{titles[threshold-1]}')
-    plt.legend(loc="upper left")
+    # for idx,threshold in enumerate(files):
+    # #     #plt.plot(vid)
+    #     print(f'{titles[threshold-1]}')
+    #     plt.plot(global_new_total_intensity[idx],label = f'{titles[threshold-1]}')
+    # plt.legend(loc="upper left")
 
-    plt.xlabel('Frame')
-    plt.ylabel('Total Pixel Intensity')
-    plt.title('Total Pixel Intensity for Various Deposition States')
+    # plt.xlabel('Frame')
+    # plt.ylabel('Total Pixel Intensity')
+    # plt.title('Total Pixel Intensity for Various Deposition States')
 
-    Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
-    # Update the legend after adding the draggable line
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels, loc='upper right')
-    plt.show()
+    # Vline = draggable_lines(ax, "h", 10000,len(max(global_binary_change, key=len)))
+    # # Update the legend after adding the draggable line
+    # handles, labels = ax.get_legend_handles_labels()
+    # ax.legend(handles, labels, loc='upper right')
+    # plt.show()
 
     # plt.show()
     # for idx,threshold in enumerate(files):
