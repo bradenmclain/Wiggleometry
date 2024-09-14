@@ -507,7 +507,7 @@ if __name__ == '__main__':
     roi = [795,444,305,588]
     threshold = 100
     #videos = np.arange(0,31)
-    videos = [5]
+    videos = [3]
 
     #for i,file_num  in enumerate(videos[1100]):
     for i,file_num in enumerate(videos):
@@ -614,10 +614,11 @@ if __name__ == '__main__':
         binary_change = np.asarray(binary_change)
         true_binary_change = np.asarray(true_binary_change)
         # plt.title('binary change')
-        plt.title('Frame to Frame Pixel Difference for Oscillating Deposition')
+        #plt.title('Frame to Frame Pixel Difference for Oscillating Deposition')
         plt.xlabel('Frame')
         plt.ylabel('Total Pixel Count')
-        plt.plot(binary_change)
+        plt.plot(binary_change,label = 'Stable')
+        plt.legend()
         # # plt.plot(true_binary_change)
         plt.show()
 
