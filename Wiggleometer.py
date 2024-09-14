@@ -50,6 +50,7 @@ class Wiggleometer:
         self.active_balling = False
         self.local_stub_indecies = []
         self.balling_data = 0
+        self.balling_offset = 5
         
 
 
@@ -190,8 +191,10 @@ class Wiggleometer:
 
     def get_stability_state(self):
         self.active_stubbing = False
-        init_offset = 8
-        stub_timing_factor = 1.3
+        init_offset = 6
+        stub_timing_factor = 1.1
+        balling_padding = 7
+        
         self.active_balling = False
         #print(self.stub_count)
         
@@ -203,6 +206,8 @@ class Wiggleometer:
         elif np.mean(self.new_total_intensity_buffer) > self.balling_threshold or self.new_total_intensity > self.balling_threshold:
             self.stability_state = 'Balling'
             self.stub_frequency_buffer[-1] = 0
+            #self.frame_change_buffer[-1] = 0
+            self.balling_offset = 0
             if np.mean(np.asarray(self.balling_data_buffer)) > self.blue_threshold:
                 self.active_balling = True
             
@@ -210,39 +215,44 @@ class Wiggleometer:
 
 
         else:
-            peaks,__ = find_peaks(np.asarray(self.stub_frequency_buffer),prominence = 500000,plateau_size = 1,width=1)
+            peaks,__ = find_peaks(np.asarray(self.stub_frequency_buffer),prominence = 400000,plateau_size = 1,width=1)
+            self.balling_offset += 1
+            if self.balling_offset >= balling_padding:
 
-            if len(peaks) != 0:
-                if (self.frame_idx-(10-peaks[0])) not in (self.stub_indecies):
-                    self.stub_indecies.append(self.frame_idx-(10-peaks[0]))
-                    self.local_stub_indecies.append(self.frame_idx-(10-peaks[0]))
-                    self.active_stubbing = True
-                    #print('EVENT DETECTED')
-                self.stability_state = 'Stubbing'
-
-
-            if np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64)) > self.stubbing_threshold:
-                self.stability_state = 'Stubbing'
-                self.stub_count +=1 
-                #print('stubbing from thresholding')
-            elif len(self.local_stub_indecies) == 1:
-                if self.frame_idx <= self.local_stub_indecies[0] + init_offset:
-                    self.stability_state = 'Stubbing' 
-                    #print('stubbing from init')
-                else:
-                    self.local_stub_indecies = []
-                    #print('CLEARING LOCAL INDEX')
-            elif len(self.local_stub_indecies) > 1:
-                if self.frame_idx<=(((self.local_stub_indecies[-1] - self.local_stub_indecies[-2]) * stub_timing_factor) + self.local_stub_indecies[-1]):
+                if len(peaks) != 0:
+                    if (self.frame_idx-(10-peaks[0])) not in (self.stub_indecies):
+                        self.stub_indecies.append(self.frame_idx-(10-peaks[0]))
+                        self.local_stub_indecies.append(self.frame_idx-(10-peaks[0]))
+                        self.active_stubbing = True
+                        #print('EVENT DETECTED')
                     self.stability_state = 'Stubbing'
-                    #print('stubbing from previous')
-                    #print('Stubbing from previous stubs')
+
+
+                if np.mean(np.asarray(self.frame_change_buffer,dtype=np.float64)) > self.stubbing_threshold:
+                    self.stability_state = 'Stubbing'
+                    self.stub_count +=1 
+                    #print('stubbing from thresholding')
+                elif len(self.local_stub_indecies) == 1:
+                    if self.frame_idx <= self.local_stub_indecies[0] + init_offset:
+                        self.stability_state = 'Stubbing' 
+                        #print('stubbing from init')
+                    else:
+                        self.local_stub_indecies = []
+                        #print('CLEARING LOCAL INDEX')
+                elif len(self.local_stub_indecies) > 1:
+                    if self.frame_idx<=(((self.local_stub_indecies[-1] - self.local_stub_indecies[-2]) * stub_timing_factor) + self.local_stub_indecies[-1]):
+                        self.stability_state = 'Stubbing'
+                        #print('stubbing from previous')
+                        #print('Stubbing from previous stubs')
+                    else:
+                        self.local_stub_indecies = []
+                        #print('CLEARING LOCAL INDEX')
                 else:
+                    self.stability_state = 'Stable'
                     self.local_stub_indecies = []
-                    #print('CLEARING LOCAL INDEX')
+            
             else:
                 self.stability_state = 'Stable'
-                self.local_stub_indecies = []
 
 
 
@@ -335,7 +345,7 @@ def moving_average(x, w):
 
 def find_stub_indecies(binary_change,engage_index,retract_index):
     
-    peaks,__ = find_peaks(binary_change,prominence = 1000000,plateau_size = 1,width=1,height = test.stubbing_threshold)
+    peaks,__ = find_peaks(binary_change,prominence = 400000,plateau_size = 1,width=1,height = test.stubbing_threshold)
 
     stubs = np.asarray(peaks)
     der = np.gradient((binary_change))
@@ -451,6 +461,7 @@ def print_general_deposit_information(deposit_data):
     print(f"During testing {(deposit_data['total_stub_occurances'])} stub events were detected\n")
 
     #print(deposit_data['stability_states'])
+    return stubbing_percent+balling_percent
 
 
 
@@ -464,7 +475,8 @@ if __name__ == '__main__':
     fourcc = cv2.VideoWriter_fourcc(*'H264')
     #fourcc = -1
 
-    engage_retract_pad = 10
+    engage_pad = 12
+    retract_pad = 10
     
     i = 0
     global_binary_change = []
@@ -475,12 +487,14 @@ if __name__ == '__main__':
     global_true_binary_change = []
     global_balling_data = []
     global_new_total_intensity = []
+    global_unstable_time = []
+
 
     videos = {1500: [0,6,7],
               1450: [8,9,10],
-              1400: [1,11,12],
+              1400: [1,30,12],
               1350: [13,14,15],
-              1300: [16,17,19],
+              1300: [16,17,18,2],
               1250: [19,20,21],
               1200: [22,23,24],
               1150: [25,26,27],
@@ -488,17 +502,19 @@ if __name__ == '__main__':
               1000: [14,26]
     }
 
-   #files = [file_1,file_2]
-    files = [1,2,3,4,5,6,7]
+    #files = [file_1,file_2]
+    #files = [1,2,3,4,5,6,7]
     roi = [795,444,305,588]
     threshold = 100
+    #videos = np.arange(0,31)
+    videos = [5]
 
-    for i,file  in enumerate(videos[1100]):
-    #for i,file in enumerate(files):
+    #for i,file_num  in enumerate(videos[1100]):
+    for i,file_num in enumerate(videos):
 
         
-        file = f"./data/Stability_Experiment/trial_{file}.mp4"
-        #file = f"./data/Wiggleometer_Deposits/wiggleometer_deposit_{file}.mp4"
+        #file = f"./data/Stability_Experiment/trial_{file_num}.mp4"
+        file = f"./data/Wiggleometer_Deposits/wiggleometer_deposit_{file_num}.mp4"
         print(f'the file is {file}')
         test = Wiggleometer(file,threshold)
         
@@ -519,6 +535,7 @@ if __name__ == '__main__':
         total_pix = []
         frame = 0
         peak_indexs = []
+        
         deposit_data = {'name': file.split("/")[-1].split(".")[0],
                         'stability_states': [],
                         'stub_indecies':[],
@@ -531,8 +548,8 @@ if __name__ == '__main__':
 
         stub_idx = 0
         
-        cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("frame", (round(width/2), round(height/2)) )
+        # cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow("frame", (round(width/2), round(height/2)) )
         while test.state:
             
             start= time.time()
@@ -571,8 +588,8 @@ if __name__ == '__main__':
 
 
             cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
-            cv2.imshow('frame',display_img)
-            cv2.waitKey(10)
+            # cv2.imshow('frame',display_img)
+            # cv2.waitKey(10)
             # print(test.stability_state)
             # print(test.stub_frequency_buffer)
             # print('its balling right the frick now')
@@ -597,9 +614,12 @@ if __name__ == '__main__':
         binary_change = np.asarray(binary_change)
         true_binary_change = np.asarray(true_binary_change)
         # plt.title('binary change')
-        # plt.plot(binary_change)
-        # plt.plot(true_binary_change)
-        # plt.show()
+        plt.title('Frame to Frame Pixel Difference for Oscillating Deposition')
+        plt.xlabel('Frame')
+        plt.ylabel('Total Pixel Count')
+        plt.plot(binary_change)
+        # # plt.plot(true_binary_change)
+        plt.show()
 
         
         
@@ -615,11 +635,11 @@ if __name__ == '__main__':
         # #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
         
-        plt.plot(binary_change,color='blue')
-        for position in positions:
-            plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
+        # plt.plot(binary_change,color='blue')
+        # for position in positions:
+        #     plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
 
-        plt.show()
+        # plt.show()
 
         #plt.plot(white_count)
         # plt.plot(moving_average(white_count,10),color = 'black')
@@ -628,8 +648,11 @@ if __name__ == '__main__':
         # plt.plot(moving_average(green_count,10),color = 'green')
         # plt.title('White Count')
         # plt.show()
-        if engage_retract_pad != 0:
-            stability_states = stability_states[engage_retract_pad:-engage_retract_pad]
+        if engage_pad != 0:
+            stability_states = stability_states[engage_pad:]
+
+        if retract_pad != 0:
+            stability_states = stability_states[:-retract_pad]
         
         
         deposit_data.update({'stability_states':stability_states})
@@ -639,8 +662,9 @@ if __name__ == '__main__':
         deposit_data.update({'deposit_length':len(stability_states)})
         deposit_data.update({'total_stub_occurances':len(stubs)})
         #print_stub_summary(deposit_data)
-        print_general_deposit_information(deposit_data)
-        print_stub_summary(deposit_data)
+        print(stability_states)
+        unstable_time = print_general_deposit_information(deposit_data)
+        #print_stub_summary(deposit_data)
 
   
         
@@ -671,10 +695,15 @@ if __name__ == '__main__':
         global_true_binary_change.append(true_binary_change)
         global_balling_data.append(balling_data)
         global_new_total_intensity.append(new_total_intensity)
+        global_unstable_time.append([file_num,unstable_time])
+        print([file_num,unstable_time])
+    print(global_unstable_time)
 
-    for new_intensity in global_binary_change:
-        plt.plot(new_intensity)
-    plt.show()
+    
+
+    # for new_intensity in global_binary_change:
+    #     plt.plot(new_intensity)
+    # plt.show()
 
     # for new_intensity in global_total_intensity:
     #     plt.plot(new_intensity)
