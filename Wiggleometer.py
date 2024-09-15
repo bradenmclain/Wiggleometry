@@ -507,7 +507,7 @@ if __name__ == '__main__':
     roi = [795,444,305,588]
     threshold = 100
     #videos = np.arange(0,31)
-    videos = [3]
+    videos = [1]
 
     #for i,file_num  in enumerate(videos[1100]):
     for i,file_num in enumerate(videos):
@@ -615,12 +615,12 @@ if __name__ == '__main__':
         true_binary_change = np.asarray(true_binary_change)
         # plt.title('binary change')
         #plt.title('Frame to Frame Pixel Difference for Oscillating Deposition')
-        plt.xlabel('Frame')
-        plt.ylabel('Total Pixel Count')
-        plt.plot(binary_change,label = 'Stable')
-        plt.legend()
-        # # plt.plot(true_binary_change)
-        plt.show()
+        # plt.xlabel('Frame')
+        # plt.ylabel('Total Pixel Count')
+        # plt.plot(binary_change,label = 'Stable')
+        # plt.legend()
+        # # # plt.plot(true_binary_change)
+        # plt.show()
 
         
         
@@ -636,11 +636,10 @@ if __name__ == '__main__':
         # #find_stub_lengths(binary_change,stubs,test.engage_index,test.retract_index)
 
         
-        # plt.plot(binary_change,color='blue')
-        # for position in positions:
-        #     plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
+        plt.plot(binary_change,color='blue')
+        for position in positions:
+            plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
 
-        # plt.show()
 
         #plt.plot(white_count)
         # plt.plot(moving_average(white_count,10),color = 'black')
@@ -674,10 +673,10 @@ if __name__ == '__main__':
         live_deposit_peaks = live_deposit_peaks[mask2]
         live_deposit_peaks = live_deposit_peaks[(np.max(test.engage_index) < live_deposit_peaks) | (live_deposit_peaks < np.min(test.retract_index))]      
 
-        # for peak in live_deposit_peaks:
-        #     plt.plot(peak,binary_change[peak],marker='*',color='red')
-        # plt.plot(binary_change,color='blue')     
-        # plt.show() 
+        for peak in live_deposit_peaks:
+            plt.plot(peak,binary_change[peak],marker='*',color='black')
+        #plt.plot(binary_change,color='blue')     
+        plt.show() 
 
         # print(stubs)
         
