@@ -16,7 +16,7 @@ class draggable_lines:
         elif kind == "v":
             x = [XorY, XorY]
             y = [-1, 1]
-        self.line = lines.Line2D(x, y, picker=5, label=f'Threshold Value {XorY}',color='red')
+        self.line = lines.Line2D(x, y, picker=5, label=f'Deposit State Threshold Value',color='black')
         self.ax.add_line(self.line)
         self.c.draw_idle()
         self.sid = self.c.mpl_connect('pick_event', self.clickonline)
@@ -30,10 +30,10 @@ class draggable_lines:
     def followmouse(self, event):
         if self.o == "h":
             self.line.set_ydata([event.ydata, event.ydata])
-            self.line.set_label(f'Deposit State Threshold Value ({event.ydata:.2f})')
+            self.line.set_label(f'Droplet Event Threshold Value')
         else:
             self.line.set_xdata([event.xdata, event.xdata])
-            self.line.set_label(f'Deposit State Threshold Value ({event.xdata:.2f})')
+            self.line.set_label(f'Droplet Event Threshold Value')
         
         self.ax.legend(loc='upper right')  # Update the legend
         self.c.draw_idle()
