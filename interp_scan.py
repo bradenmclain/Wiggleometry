@@ -64,8 +64,11 @@ for filename in glob.glob(os.path.join(path, '*_data.txt')):
         for laser_power, bead_data in videos.items():
             if name in bead_data:
                 # Update the bead data in the dictionary
-                videos[laser_power][name][1] = data['stats']['XY error average']
-                videos[laser_power][name][2] = data['stats']['Z error average']
+                # videos[laser_power][name][1] = data['stats']['XY error average']
+                # videos[laser_power][name][2] = data['stats']['Z error average']
+                videos[laser_power][name][1] = (data['stats']["Z Norm Avg"])
+                videos[laser_power][name][2] = (data['stats']["XY Norm stdev"])
+                videos[laser_power][name][3] = (data['stats']["Z Norm stdev"])
 
             
 
@@ -74,7 +77,8 @@ for filename in glob.glob(os.path.join(path, '*_data.txt')):
 for laser_power, beads in videos.items():
     print(f"Laser Power: {laser_power}")
     for bead, data in beads.items():
-        print(f"  Bead {bead}: Unstable Time: {data[0]}\tXY error average: {data[1]}\tZ error average: {data[2]}")
+        #print(f"  Bead {bead}: Unstable Time: {data[0]}\tXY error average: {data[1]}\tZ error average: {data[2]} XY Norm: {data[3]}")
+        print(f"  Bead {bead}: Unstable Time: {data[0]} Z Norm Avg {data[1]} Z Norm stdev {data[3]}")
         # print(data['stats']['XY error range'])
 
         # print(data['stats']['XY error stdev'])

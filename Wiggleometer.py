@@ -11,6 +11,7 @@ from scipy import interpolate
 from scipy.optimize import root_scalar
 import warnings
 import matplotlib.colors as mcolors
+import sys
 
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, message="The truth value of an empty array is ambiguous.")
@@ -430,7 +431,7 @@ def find_stub_indecies(binary_change,engage_index,retract_index):
                     x1_pos = local_x[new_point[0][0]]
                     x2_pos = der_valleys[int(right)]
                     
-            lengths.append((x2_pos-x1_pos)/30)
+            lengths.append((x2_pos-x1_pos))
             positions.append([x1_pos,x2_pos,interp_function(x1_pos),interp_function(x2_pos)]) 
 
 
@@ -451,6 +452,8 @@ def print_general_deposit_information(deposit_data):
     number_stubs = deposit_data['stability_states'].count('Stubbing')
     number_stable = deposit_data['stability_states'].count('Stable')
 
+    print(f"total number of depositon frames was {len(deposit_data['stability_states'])}")
+
     stable_percent = number_stable*100/len(deposit_data['stability_states'])
     balling_percent = number_balls*100/len(deposit_data['stability_states'])
     stubbing_percent = number_stubs*100/len(deposit_data['stability_states'])
@@ -464,7 +467,7 @@ def print_general_deposit_information(deposit_data):
     print(f"During testing {(deposit_data['total_stub_occurances'])} stub events were detected\n")
 
     #print(deposit_data['stability_states'])
-    return stubbing_percent+balling_percent
+    return balling_percent,stubbing_percent
 
 
 
@@ -491,6 +494,7 @@ if __name__ == '__main__':
     global_balling_data = []
     global_new_total_intensity = []
     global_unstable_time = []
+    final_info = []
 
 
     videos = {1500: [0,6,7],
@@ -510,14 +514,17 @@ if __name__ == '__main__':
     roi = [795,444,305,588]
     threshold = 100
     #videos = np.arange(0,31)
-    videos = [5]
+    videos = np.arange(0,31,1)
+    if len(sys.argv) > 1:
+        videos =[]
+        videos.append(sys.argv[1])
 
     #for i,file_num  in enumerate(videos[1100]):
     for i,file_num in enumerate(videos):
 
         
-        #file = f"./data/Stability_Experiment/trial_{file_num}.mp4"
-        file = f"./data/Wiggleometer_Deposits/wiggleometer_deposit_{file_num}.mp4"
+        file = f"./data/Stability_Experiment/trial_{file_num}.mp4"
+        #file = f"./data/Wiggleometer_Deposits/wiggleometer_deposit_{file_num}.mp4"
         print(f'the file is {file}')
         test = Wiggleometer(file,threshold)
         
@@ -668,9 +675,9 @@ if __name__ == '__main__':
         deposit_data.update({'deposit_start_idx':np.max(test.engage_index)+engage_pad})
         deposit_data.update({'deposit_end_idx':np.min(test.retract_index)-retract_pad})
 
-        print_stub_summary(deposit_data)
-        print(stability_states)
-        unstable_time = print_general_deposit_information(deposit_data)
+        #print_stub_summary(deposit_data)
+        #print(stability_states)
+        balling_percent,stubbing_percent = print_general_deposit_information(deposit_data)
         #print_stub_summary(deposit_data)
 
   
@@ -685,27 +692,28 @@ if __name__ == '__main__':
             'Stable': 0 ,  # Map 'StateB' to 0
             'Balling': 2
         }
+    
 
         # Convert the time series to 1s and 0s using the mapping
-        binary_series = [string_to_binary[state] for state in stability_states]
+        # binary_series = [string_to_binary[state] for state in stability_states]
 
-        print(binary_series)
-        cmap = plt.get_cmap('coolwarm')
-        color_map = {0: '#9467bd', 1: 'orange',2:'green'}
+        # print(binary_series)
+        # cmap = plt.get_cmap('coolwarm')
+        # color_map = {0: '#9467bd', 1: 'orange',2:'green'}
 
-        # Create the figure and axis
-        fig, ax = plt.subplots()
+        # # Create the figure and axis
+        # fig, ax = plt.subplots()
 
-        # Plot the "bead" as a single continuous line with changing colors
-        for i in range(len(binary_series) - 1):
-            # Determine color based on the current value in the time series
-            color = color_map[binary_series[i]]
-            ax.plot([i, i+1], [0, 0], color=color, lw=10, solid_capstyle='round')
-        # Hide axes for the visual bead effect
-        ax.set_axis_off()
+        # # Plot the "bead" as a single continuous line with changing colors
+        # for i in range(len(binary_series) - 1):
+        #     # Determine color based on the current value in the time series
+        #     color = color_map[binary_series[i]]
+        #     ax.plot([i, i+1], [0, 0], color=color, lw=10, solid_capstyle='round')
+        # # Hide axes for the visual bead effect
+        # ax.set_axis_off()
 
         # Display the plot
-        plt.show()
+        #plt.show()
 
 
         # SMALL_SIZE = 8
@@ -721,10 +729,20 @@ if __name__ == '__main__':
         # plt.plot(binary_change,color='#9467bd',label = 'Stubbing to Stable Deposition')
         # plt.xlabel('Frame')
         # plt.ylabel('Total Binary Change Pixel Count')
+
+        # plt.plot(binary_change)
+        
+        # for stub in stubs:
+        #     plt.scatter(stub,binary_change[stub],marker='.',color='black')
+
         
         # for position in positions:
         #     plt.plot([position[0],position[1]],[position[2],position[3]],color='black')
         # plt.plot([position[0],position[1]],[position[2],position[3]],color='black',label = 'Stub Length')
+
+        # plt.show()
+
+        # print(f"new time is {(np.sum(lengths))/(deposit_data['deposit_end_idx']-deposit_data['deposit_start_idx'])}")
 
         # for peak in live_deposit_peaks:
         #      plt.scatter(peak,binary_change[peak],marker='.',color='black',s= 45)
@@ -749,11 +767,11 @@ if __name__ == '__main__':
         global_true_binary_change.append(true_binary_change)
         global_balling_data.append(balling_data)
         global_new_total_intensity.append(new_total_intensity)
-        global_unstable_time.append([file_num,unstable_time])
-        print([file_num,unstable_time])
+        global_unstable_time.append([file_num,balling_percent,stubbing_percent])
+        print([file_num,balling_percent,stubbing_percent])
 
         plt.plot(binary_change[deposit_data['deposit_start_idx']:deposit_data['deposit_end_idx']])
-        plt.show()
+        #plt.show()
 
         # y_min = np.min(binary_change[deposit_data['deposit_start_idx']:deposit_data['deposit_end_idx']])  # Minimum value for the y-axis
         # y_max = np.max(binary_change[deposit_data['deposit_start_idx']:deposit_data['deposit_end_idx']])  # Maximum value for the y-axis
@@ -783,21 +801,31 @@ if __name__ == '__main__':
         ax.set_axis_off()
         ball_size_factor = 11
         x_position = 19
+        if balling_percent > 0:
+            final_state = 'fail balling'
+        elif stubbing_percent > 0:
+            final_state = 'fail stubbing'
+        else:
+            final_state = 'pass'
 
         #ax.plot(19, 0, 'o', markersize=25, color='orange')  # Adjust 'markersize' and color as needed
         # ax.plot(106, 0, 'o', markersize=25, color='orange')  # Adjust 'markersize' and color as needed
         # ax.plot(168, 0, 'o', markersize=25, color='orange')  # Adjust 'markersize' and color as needed
-        print(test.active_balling_idx - np.max(deposit_data['deposit_start_idx']))
-        print(np.diff(test.active_balling_idx - np.max(deposit_data['deposit_start_idx'])))
-        print(np.where(np.diff(test.active_balling_idx - np.max(deposit_data['deposit_start_idx']))>1))
-        print()
+        # print(test.active_balling_idx - np.max(deposit_data['deposit_start_idx']))
+        # print(np.diff(test.active_balling_idx - np.max(deposit_data['deposit_start_idx'])))
+        # print(np.where(np.diff(test.active_balling_idx - np.max(deposit_data['deposit_start_idx']))>1))
+        # print()
 
         # Display the plot
-        plt.show()
+        #plt.show()
+        final_info.append([file_num,final_state,balling_percent,stubbing_percent])
 
-    print(global_unstable_time)
+    #print(global_unstable_time)
+    final_info = sorted(final_info, key=lambda x: x[0])
 
-    
+    with open("output.txt", "w") as file:
+        for info in final_info:
+            file.write(str(info)+'\n')
 
     # for new_intensity in global_binary_change:
     #     plt.plot(new_intensity)
@@ -848,44 +876,44 @@ if __name__ == '__main__':
     # ax.legend(handles, labels, loc='upper right')
     # plt.show()
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    plt.subplot(111)
-    plt.legend(loc='upper right')
-    plt.legend(fontsize='10')
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # plt.subplot(111)
+    # plt.legend(loc='upper right')
+    # plt.legend(fontsize='10')
 
-    SMALL_SIZE = 8
-    MEDIUM_SIZE = 10
-    BIGGER_SIZE = 16
+    # SMALL_SIZE = 8
+    # MEDIUM_SIZE = 10
+    # BIGGER_SIZE = 16
 
 
 
-    plt.rcParams.update({'font.size': '15'})
-    plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
-    plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
-    plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
-    plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
-    plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
-    plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
+    # plt.rcParams.update({'font.size': '15'})
+    # plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
+    # plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
+    # plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
+    # plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+    # plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+    # plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
 
-    #plt.show()
-    Vline = draggable_lines(ax, "h", 10000,len(max(global_total_average_intensity, key=len)))
-    # Update the legend after adding the draggable line
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels, loc='upper right',fontsize= '10')
-    colors = ['#1f77b4', 'orange', 'green']
-    for idx,threshold in enumerate(videos):
-    #     #plt.plot(vid)
-        plt.plot(global_balling_data[idx],label = f'{titles[threshold-1]}',color = colors[idx])
-    plt.legend(loc="upper right")
+    # #plt.show()
+    # Vline = draggable_lines(ax, "h", 10000,len(max(global_total_average_intensity, key=len)))
+    # # Update the legend after adding the draggable line
+    # handles, labels = ax.get_legend_handles_labels()
+    # ax.legend(handles, labels, loc='upper right',fontsize= '10')
+    # colors = ['#1f77b4', 'orange', 'green']
+    # for idx,threshold in enumerate(videos):
+    # #     #plt.plot(vid)
+    #     plt.plot(global_balling_data[idx],label = f'{titles[threshold-1]}',color = colors[idx])
+    # plt.legend(loc="upper right")
 
-    plt.xlabel('Frame')
-    plt.ylabel('Total Blue Pixel Count')
-    #plt.title('Frame to Frame Binary Change Pixel Count for Various Deposition States')
+    # plt.xlabel('Frame')
+    # plt.ylabel('Total Blue Pixel Count')
+    # #plt.title('Frame to Frame Binary Change Pixel Count for Various Deposition States')
 
 
    
-    plt.show()
+    # plt.show()
         
         # plt.plot(pixel_count_array)
         # plt.show()
