@@ -294,7 +294,12 @@ def measure(mesh,F):
 	peaks = []
 	for S in sections:
 		if S[1]:
-			ax.plot(S[1].vertices[:,0],S[1].vertices[:,1],S[1].vertices[:,2],'g.')
+			ax.plot(S[1].vertices[:,0],S[1].vertices[:,1],S[1].vertices[:,2],'g',label = 'Scan Data')
+			
+			ax.set_xlabel('X-axis (mm)')
+			ax.set_ylabel('Y-axis (mm)')
+			ax.set_zlabel('Z-axis (mm)')
+
 			weights=S[1].vertices[:,2]
 			area=numpy.sum(weights)
 			moments=numpy.array([numpy.array([S[1].vertices[i,0],S[1].vertices[i,1],S[1].vertices[i,2]/2])*weights[i] for i in range(len(weights))])
@@ -306,11 +311,20 @@ def measure(mesh,F):
 
 		# else:
 		# 	pnts.append(numpy.array([S[0],0,0]))
-	peaks = numpy.array(peaks)
 	pnts = numpy.array(pnts)
+	if xmax > 30:
+		left = numpy.where(pnts[:,0]>numpy.min(pnts[:,0])+3)[0][0]
+		right = numpy.where(pnts[:,0]>numpy.max(pnts[:,0])-3)[0][0]
+		pnts=pnts[left:right,:]
+	
+	peaks = numpy.array(peaks)
+
 	areas = numpy.array(areas)
 
-	ax.plot(pnts[:,0],pnts[:,1],pnts[:,2],'r-')
+	ax.plot(pnts[:,0],pnts[:,1],pnts[:,2],'r-',label= "Slice Centroid Position")
+	handles, labels = plt.gca().get_legend_handles_labels()
+	plt.legend([handles[1], handles[-1]], [labels[1], labels[-1]])
+	#plt.show()
 	plt.clf()
 
 	# Assuming you're fitting a line based on the 1D points in pnts[:, 0]
@@ -326,7 +340,6 @@ def measure(mesh,F):
 	smooth_y_data_adjusted = moving_average(pnts[:,1]-ransac_adjust_line,5)
 	first_peaks, properties2 = find_peaks(numpy.abs(smooth_y_data_adjusted),prominence=0.1,height=0.,wlen=40)
 	
-	plt.plot(smooth_y_data_adjusted)
 	
 	for peak in first_peaks:
 		plt.plot(peak,smooth_y_data_adjusted[peak],'or')
@@ -342,13 +355,6 @@ def measure(mesh,F):
 		# Set the values within the window to NaN
 		smooth_y_data_adjusted_nan[start:end] = numpy.nan
 
-
-
-	plt.plot(numpy.arange(0,len(smooth_y_data_adjusted),1),smooth_y_data_adjusted_nan,'orange')
-	plt.ylim(-1.5,1.5)
-
-	# Apply the mask to remove unwanted data points
-	
 	x = numpy.arange(0,len(smooth_y_data_adjusted),1)
 	x_masked = x[mask]
 	smooth_y_data_adjusted_masked = smooth_y_data_adjusted[mask]	
@@ -356,23 +362,12 @@ def measure(mesh,F):
 	ransac = linear_model.RANSACRegressor(max_trials=5000, min_samples=6,stop_n_inliers=int(0.8*len(x_values)),residual_threshold=.05)
 	ransac.fit(x_masked.reshape(-1,1), smooth_y_data_adjusted_masked)
 	ransac_adjust_line = ransac.predict(x.reshape(-1,1))
-	
-	plt.plot(ransac_adjust_line,'black')
-	
-	plt.ylim(-1.5,1.5)
+
 	#plt.show()
 	
 	ransac_second_adjust = smooth_y_data_adjusted_nan[:]-ransac_adjust_line[:]
-	plt.plot(numpy.arange(0,len(smooth_y_data_adjusted),1),ransac_second_adjust,'orange')
-	plt.ylim(-1.5,1.5)
-	plt.plot(numpy.zeros(len(smooth_y_data_adjusted)),'black')
-	plt.plot(numpy.abs(smooth_y_data_adjusted))
-	
+	new_peaks, properties2 = find_peaks(numpy.abs(ransac_second_adjust),prominence=0.1,height=0.,wlen=40)
 
-	peaks, properties2 = find_peaks(numpy.abs(ransac_second_adjust),prominence=0.1,height=0.,wlen=40)
-
-	for peak in peaks:
-		plt.plot(peak,ransac_second_adjust[peak],'or')
 
 	#plt.show()
 	plt.plot(moving_average(pnts[:,2],10))
@@ -384,10 +379,23 @@ def measure(mesh,F):
 	plt.ylabel('Y centroild position in mm')
 	thresholded_data = numpy.convolve(numpy.abs(smooth_y_data_adjusted)>0.15,numpy.ones(period))>2
 	plt.plot(thresholded_data[:len(smooth_y_data_adjusted)])
+	plt.clf()
 
-	state_drip =  numpy.max(moving_average(pnts[:,2],10)>0.6)*1
+	state_drip =  numpy.max(moving_average(pnts[:,2],10)>0.6)
+	state_drip_data =  (moving_average(pnts[:,2],10)>0.6)
+	print(numpy.sum(state_drip_data)/numpy.size(state_drip_data))
+	plt.rcParams.update({'font.size': 11})
+	plt.ylim(-1.0,1.5)
+	plt.plot(pnts[:len(smooth_y_data_adjusted),0],smooth_y_data_adjusted, label = 'Y Centroid Position (mm)')
+	plt.plot(pnts[:,0],thresholded_data[:len(pnts[:,0])],label = 'Stubbing Thresholding State')
+	plt.xlabel('X Bead Position (mm)')
+	plt.ylabel('Y Centroid Position (mm)')
+	
+	plt.legend(loc='upper right', fontsize=11)
+	plt.show()
 
 	state_stub = numpy.max(thresholded_data)
+	print(f'total time stubbing is {numpy.sum(thresholded_data)/len(thresholded_data)}')
 	
 	if state_drip == 1:
 		final_state = 'fail drip'
@@ -435,8 +443,10 @@ def analyze(path,F):
 	return results
 
 if __name__=="__main__":
+	final_info = []
+	z_heights = []
 	if os.path.isdir(sys.argv[1]):
-		final_info = []
+		
 		path = sys.argv[1]
 		for filename in glob.glob(os.path.join(path, '*.stl')):
 			
@@ -447,14 +457,8 @@ if __name__=="__main__":
 				f.write(json.dumps(results,cls=NumpyEncoder))
 				f.close()
 				final_info.append([bead_number,final_state])
+				z_heights.append(zheight)
 
-
-	final_info = sorted(final_info, key=lambda x: x[0])
-
-	with open("output2.txt", "w") as file:
-		for info in final_info:
-			file.write(str(info)+'\n')
-				
 
 	if os.path.isfile(sys.argv[1]):
 		with open(sys.argv[1], 'r') as f:
@@ -462,3 +466,15 @@ if __name__=="__main__":
 			f=open(sys.argv[1][:-4]+"_data.txt",'w')
 			f.write(json.dumps(results,cls=NumpyEncoder))
 			f.close()
+	
+	final_info = sorted(final_info, key=lambda x: x[0])
+
+	for zheight in z_heights:
+		plt.plot(zheight)
+	plt.show()
+	print(final_info)
+
+	with open("output2.txt", "w") as file:
+		for info in final_info:
+			print(info)
+			file.write(str(info)+'\n')

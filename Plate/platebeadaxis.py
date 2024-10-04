@@ -14,6 +14,7 @@ from icecream import ic
 from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator,griddata
 import json
 from numpyencoder import NumpyEncoder
+from matplotlib.ticker import MaxNLocator
 
 def rotationMatrix(angle,axis=numpy.array([0,0,1])):
 	"""Returns the rotation matrix for rotating 'angle' radians about 'axis'."""
@@ -148,10 +149,15 @@ def allthethings(F):
 	results["stats"]=analyze(results["paths"],F)
 	return results
 
+def moving_average(x, w):
+	return numpy.convolve(x, numpy.ones(w), 'valid') / w
+
 def measure(beads,F):
 	paths={}
+	z_heights = []
 	for B in beads:
 		bead=beads[B]
+		print(f' now testing bead {B}')
 		cut_interval=0.1
 		fig = plt.figure()
 		ax = fig.add_subplot(111, projection='3d',aspect='auto')
@@ -162,7 +168,7 @@ def measure(beads,F):
 		pnts=[]
 		for S in sections:
 			if S[1]:
-				ax.plot(S[1].vertices[:,0],S[1].vertices[:,1],S[1].vertices[:,2],'g.')
+				ax.plot(S[1].vertices[:,0],S[1].vertices[:,1]-B,S[1].vertices[:,2],'g.',label = 'Scan Data')
 				weights=S[1].vertices[:,2]
 				area=numpy.sum(weights)
 				moments=numpy.array([numpy.array([S[1].vertices[i,0],S[1].vertices[i,1],S[1].vertices[i,2]/2])*weights[i] for i in range(len(weights))])
@@ -170,16 +176,57 @@ def measure(beads,F):
 				pnts.append(centroid)
 		pnts=numpy.array(pnts)
 		#print(xmax)
+		ax.set_xlabel('X-axis (mm)')
+		ax.set_ylabel('Y-axis (mm)')
+		ax.set_zlabel('Z-axis (mm)')
 
 		if xmax > 30:
-			left = numpy.where(pnts[:,0]>numpy.min(pnts[:,0])+12)[0][0]
-			right = numpy.where(pnts[:,0]>numpy.max(pnts[:,0])-12)[0][0]
+			left = numpy.where(pnts[:,0]>numpy.min(pnts[:,0])+8)[0][0]
+			right = numpy.where(pnts[:,0]>numpy.max(pnts[:,0])-6)[0][0]
 			pnts=pnts[left:right,:]
 		
 		paths[B]=pnts
-		ax.plot(pnts[:,0],pnts[:,1],pnts[:,2],'r-')
-		plt.savefig(F[:-4]+f'_Y{B:3.4f}_plot.pdf')
+		ax.plot(pnts[:,0],pnts[:,1]-B,pnts[:,2],'r-',label= "Slice Centroid Position")
+		handles, labels = plt.gca().get_legend_handles_labels()
+		plt.legend([handles[1], handles[-1]], [labels[1], labels[-1]])
+		plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=5))  # Set max number of x ticks
+		plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=5))  # Set max number of y ticks
 		
+		#plt.plot(moving_average(pnts[:,1],10))
+		#plt.ylim(-1.5,1.5)
+		#plt.show()
+		plt.tight_layout()
+		plt.savefig(F[:-4]+f'_Y{B:3.4f}_plot.pdf')
+		z_heights.append([pnts[:,0],pnts[:,2],B])
+	plt.clf()
+
+	beads_z = sorted(z_heights, key=lambda x: x[2])
+	# Set the global font size before plotting
+	plt.rcParams.update({'font.size': 14})  # Set the font size for all elements
+
+	# Optional: Adjust figure size for better visibility
+	plt.figure(figsize=(10, 6))  # Adjust the size as needed
+	labels = ['Stable Deposit','','','','Dripping Deposit']
+
+	# Plotting the data
+	for idx, bead_z in enumerate(beads_z):
+		if idx == 0 or idx == 4:
+			plt.plot(moving_average(bead_z[0], 10), moving_average(bead_z[1], 10), label=labels[idx])
+
+	# Set axis labels
+	plt.ylabel('Z Centroid Component (mm)')
+	plt.xlabel('X Bead Position (mm)')
+
+	# Set the legend
+	plt.legend(loc='upper right', fontsize=14)
+
+	# Show the plot
+	plt.show()
+
+	f=open(+"_data.txt",'w')
+	del results["beads"]
+	f.write(json.dumps(results,cls=NumpyEncoder))
+	f.close()
 	return paths
 	
 
