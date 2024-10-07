@@ -441,7 +441,7 @@ def print_general_deposit_information(deposit_data):
 	#print(deposit_data['stability_states'])
 	return balling_percent,stubbing_percent
 
-def create_heat_map(binary_change,deposit_data):
+def create_heat_map(binary_change,deposit_data,drip_indecies):
 	y_max = 1691315.0
 	y_min = 44607.0
 
@@ -463,15 +463,33 @@ def create_heat_map(binary_change,deposit_data):
 		ax.plot([i, i+1], [0, 0], color=color, lw=10, solid_capstyle='round')
 
 	# Hide axes for visual effect
+	for drip in drip_indecies:
+		plt.plot(drip,0,'o',markersize=20,color='orange')
+
 	ax.set_axis_off()
 	ball_size_factor = 11
 	x_position = 19
 	plt.show()
 
-def get_drip_indecies(balling_data):
-	drip_threshold = 4000000
-	plt.plot(balling_data)
-	plt.show()
+def get_drip_indecies(drip_events,deposit_data):
+	if len(drip_events)>0:
+		drip_events = np.asarray(drip_events)
+
+		print(drip_events[np.where(np.diff(drip_events)>1)[0]])
+
+		event_indecies = drip_events[np.where(np.diff(drip_events)>1)[0]]
+		event_indecies = np.append(event_indecies,drip_events[-1])
+
+		if 'Balling' in deposit_data['stability_states'][-5:-1]:
+			event_indecies = event_indecies[:-1]
+		event_indecies = event_indecies - np.max(deposit_data['deposit_start_idx'])
+	else:
+		event_indecies = []
+	
+	return event_indecies
+
+
+
 
 def get_roi(file):
 	cap = cv2.VideoCapture(file)
@@ -596,8 +614,8 @@ if __name__ == '__main__':
 						'stub_intensities':[],
 						'deposit_length':0,
 						'total_stub_events':0,
-						'deposit_start':0,
-						'deposit_end':0
+						'deposit_start_idx':0,
+						'deposit_end_idx':0
 						
 		}
 
@@ -697,14 +715,15 @@ if __name__ == '__main__':
 		deposit_data.update({'deposit_end_idx':np.min(test.retract_index)-retract_pad})
 		deposit_data.update({'name':file[1]})
 
-		get_drip_indecies(balling_data)
+		drip_indecies = get_drip_indecies(test.active_balling_idx,deposit_data)
+		create_heat_map(binary_change,deposit_data,drip_indecies)
 		print(test.retract_index)
 		print(test.active_balling_idx)
 		print(stability_states)
 
 		#print_stub_summary(deposit_data)
 		#print(stability_states)
-		#create_heat_map(binary_change,deposit_data)
+
 		balling_percent,stubbing_percent = print_general_deposit_information(deposit_data)
 		
 		#print_stub_summary(deposit_data)

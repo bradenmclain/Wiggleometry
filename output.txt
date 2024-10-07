@@ -1,1 +1,1 @@
-['trial_6', 'fail balling', 100.0, 0.0]
+['.\\data\\Stability_Experiment\\trial_26', 'fail stubbing', 0.0, 32.142857142857146]
