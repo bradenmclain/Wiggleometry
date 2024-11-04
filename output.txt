@@ -1,1 +1,1 @@
-['.\\data\\Stability_Experiment\\trial_26', 'fail stubbing', 0.0, 32.142857142857146]
+['C:\\Users\\btmcl\\Wiggleometry\\data\\Stability_Experiment\\trial_18', 'fail stubbing', 0.0, 12.587412587412587]

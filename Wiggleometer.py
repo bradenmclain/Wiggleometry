@@ -552,6 +552,8 @@ if __name__ == '__main__':
 	global_unstable_time = []
 	final_info = []
 	roi_request = False
+
+	
 	
 
 	#if you pass in a file, it will run one video. if you pass in a folder, it will run all videos.  
@@ -620,6 +622,10 @@ if __name__ == '__main__':
 		}
 
 		stub_idx = 0
+		plt.ion()
+		cv2.namedWindow("Test Window", cv2.WINDOW_NORMAL)
+		cv2.resizeWindow("Test Window", 960, 540)
+
 
 		while test.state:
 			
@@ -633,14 +639,14 @@ if __name__ == '__main__':
 			test.save_balling_data()
 
 
-			display_img = cv2.putText(test.frame,test.stability_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
-			display_img = cv2.putText(display_img,test.deposit_state,(10,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
+			#display_img = cv2.putText(test.frame,test.stability_state,(10,140), font, 2, (255,255,255), 2, cv2.LINE_AA)
+			#display_img = cv2.putText(display_img,test.deposit_state,(10,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
 
 			if test.active_stubbing:
-				display_img = cv2.putText(display_img,'OSCILLATION DETECTED',(1200,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
+				pass#display_img = cv2.putText(display_img,'OSCILLATION DETECTED',(1200,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
 
 			if test.active_balling:
-				display_img = cv2.putText(display_img,'CURRENTLY BALLING',(1200,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
+				pass#display_img = cv2.putText(display_img,'CURRENTLY BALLING',(1200,200), font, 2, (255,255,255), 2, cv2.LINE_AA)
 
 			
 			binary_change.append(np.mean(np.asarray(test.frame_change_buffer,dtype=np.float64)))
@@ -651,9 +657,13 @@ if __name__ == '__main__':
 			#cv2.rectangle(test.gray_image, (int(roi[0]), int(roi[1])), (int(roi[0]+roi[2]), int(roi[1]+roi[3])), (255, 255, 255), 2) 
 			#if roi != 0:
 				#cv2.imshow('binary frame',test.binary_image)
-			# cv2.imshow('full frame',test.frame)
-			# cv2.waitKey(40)
+			cv2.imshow('Test Window',test.frame)
+			cv2.waitKey(10)
 			test.get_frame()
+			plt.clf()
+			plt.plot(binary_change)
+			plt.draw()
+			plt.pause(0.005)
 			
 			total_average_intensity.append(np.mean(np.asarray(test.total_intensity_buffer,dtype=np.float64)))
 			total_intensity.append(test.total_intensity)
