@@ -1,1 +1,1 @@
-['C:\\Users\\btmcl\\Wiggleometry\\data\\Stability_Experiment\\trial_18', 'fail stubbing', 0.0, 12.587412587412587]
+['wiggleometer_deposit_2', 'fail balling', 100.0, 0.0]

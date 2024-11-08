@@ -625,9 +625,12 @@ if __name__ == '__main__':
 		plt.ion()
 		cv2.namedWindow("Test Window", cv2.WINDOW_NORMAL)
 		cv2.resizeWindow("Test Window", 960, 540)
+		i = 0
 
 
 		while test.state:
+			i+= 1
+			
 			
 			start= time.time()
 
@@ -658,10 +661,16 @@ if __name__ == '__main__':
 			#if roi != 0:
 				#cv2.imshow('binary frame',test.binary_image)
 			cv2.imshow('Test Window',test.frame)
-			cv2.waitKey(10)
+			cv2.waitKey(5)
 			test.get_frame()
 			plt.clf()
-			plt.plot(binary_change)
+			if i <= 200:
+				plt.plot(balling_data)
+			if i > 200:
+				plt.plot(balling_data[190:])
+			plt.xlabel('Frame')
+			plt.ylabel('Pixel Count (Pixels)')
+			plt.ylim(-5000000,58000000)
 			plt.draw()
 			plt.pause(0.005)
 			
