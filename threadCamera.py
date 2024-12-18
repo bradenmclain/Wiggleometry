@@ -3,6 +3,7 @@ from multiprocessing import Process, Value,Queue
 import time
 import cherrypy
 from icecream import ic
+import numpy as np
 from LiveWiggleometer import LiveWiggleometer
 
 class VideoDisplay:
@@ -38,11 +39,9 @@ class VideoDisplay:
 
 	def capture_frames(self):
 		while True:
-			try:
 				start_time = time.time()
 				ret, frame = self.capture.read()
 				if ret:
-				
 					if self.state_flag.value == 1:
 						self.record_queue.put(frame)
 					sleep = (1/self.fps) - (time.time() - start_time)
@@ -57,19 +56,17 @@ class VideoDisplay:
 						self.wiggleometer.save_balling_data()
 						frame = cv2.putText(frame,self.wiggleometer.stability_state,(10,60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
 					self.display_queue.put(frame)
-					
-				sleep = (1/self.fps) - (time.time() - start_time)
-				print(sleep)
-				if sleep > 0:
-					time.sleep(sleep)
+				else:
+					empty_frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+					frame = cv2.putText(empty_frame,'RECIEVED BAD FRAME',(10,60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
+					self.display_queue.put(frame)
 
 				if self.state_flag.value == 3:
 					break
-			except:
-				print('something broke')
 
 		self.capture.release()
-		print('Capture Process is free')
+		self.state_flag.value = 4
+
 		
 
 	def display_frames(self):
@@ -77,23 +74,23 @@ class VideoDisplay:
 			if not self.display_queue.empty():
 				frame = self.display_queue.get()
 				cv2.imshow("Video", frame)
-				cv2.waitKey(10)
+				cv2.waitKey(1)
 			
-			if self.state_flag.value == 3:
-				while not self.display_queue.empty:
-					frame = self.display_queue.get()
-					cv2.imshow("Video", frame)
-					cv2.waitKey(10)
+			if self.state_flag.value == 4:
 				break
 
+		while not self.display_queue.empty():
+			frame = self.display_queue.get()
+			cv2.imshow("Video", frame)
+			cv2.waitKey(1)
 		cv2.destroyAllWindows() 
-		print('Display Process is free')
+
 
 	def record_frames(self):
 		out = cv2.VideoWriter(f'output{time.time()}.mp4', self.fourcc, self.fps, (self.width, self.height))
 		print('starting up')
 		while True:
-			if self.record_queue.empty() == False:
+			if not self.record_queue.empty():
 				record_frame = self.record_queue.get()
 				if record_frame is not None: 
 					out.write(record_frame)
@@ -101,7 +98,7 @@ class VideoDisplay:
 					ic('empty frame recieved while recording')
 			
 			if self.close_video.value == True:
-				while self.record_queue.empty() == False:
+				while not self.record_queue.empty():
 					record_frame = self.record_queue.get()
 					if record_frame is not None: 
 						out.write(record_frame)
@@ -118,12 +115,8 @@ class VideoDisplay:
 			if self.state_flag.value == 3:
 				break
 
-
-
 			time.sleep(.01)
 
-
-		pass
 
 class StateServer:
 	def __init__(self):
@@ -160,13 +153,16 @@ class StateServer:
 			self.state = "stopped"
 			self.video_display.state_flag.value = 3
 
-			self.capture_process.join()
 			self.display_process.join()
+			ic('display process is dead')
+			self.capture_process.join()
+			ic('capture process is dead')
 			self.record_process.join()
+			ic('record prcoess is dead')
 
-			self.display_process.close()
-			self.capture_process.close()
-			self.record_process.close()
+			# self.display_process.close()
+			# self.capture_process.close()
+			# self.record_process.close()
 
 			
 			cherrypy.engine.exit()
