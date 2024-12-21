@@ -77,6 +77,8 @@ class VideoDisplay:
 		while True:
 			if not self.display_queue.empty():
 				frame = self.display_queue.get()
+				if self.state_flag.value == 1:
+					frame = cv2.putText(frame,'Recording',(10,130), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
 				cv2.imshow("Video", frame)
 				cv2.waitKey(1)
 			
